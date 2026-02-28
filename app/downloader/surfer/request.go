@@ -1,4 +1,4 @@
-// Copyright 2015 henrylee2cn Author. All Rights Reserved.
+// Copyright 2015 andeya Author. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -87,8 +87,10 @@ type (
 )
 
 const (
-	SurfID             = 0               // Surf下载器标识符
-	PhomtomJsID        = 1               // PhomtomJs下载器标识符
+	SurfID      = 0 // Surf下载器标识符
+	PhantomJsID = 1 // PhantomJs下载器标识符
+	// Deprecated: Use PhantomJsID instead.
+	PhomtomJsID        = PhantomJsID
 	DefaultMethod      = "GET"           // 默认请求方法
 	DefaultDialTimeout = 2 * time.Minute // 默认请求服务器超时
 	DefaultConnTimeout = 2 * time.Minute // 默认下载超时
@@ -126,7 +128,7 @@ func (self *DefaultRequest) prepare() {
 		self.RetryPause = DefaultRetryPause
 	}
 
-	if self.DownloaderID != PhomtomJsID {
+	if self.DownloaderID != PhantomJsID {
 		self.DownloaderID = SurfID
 	}
 }

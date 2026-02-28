@@ -1,4 +1,4 @@
-// Copyright 2015 henrylee2cn Author. All Rights Reserved.
+// Copyright 2015 andeya Author. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,8 +27,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/henrylee2cn/goutil"
-	"github.com/henrylee2cn/pholcus/app/downloader/surfer/agent"
+	"github.com/andeya/gust/syncutil"
+	"github.com/andeya/pholcus/app/downloader/surfer/agent"
 )
 
 // Surf is the default Download implementation.
@@ -83,11 +83,11 @@ func (self *Surf) Download(req Request) (resp *http.Response, err error) {
 	return
 }
 
-var dnsCache = &DnsCache{ipPortLib: goutil.AtomicMap()}
+var dnsCache = &DnsCache{}
 
 // DnsCache DNS cache
 type DnsCache struct {
-	ipPortLib goutil.Map
+	ipPortLib syncutil.SyncMap[string, string]
 }
 
 // Reg registers ipPort to DNS cache.
@@ -102,11 +102,11 @@ func (d *DnsCache) Del(addr string) {
 
 // Query queries ipPort from DNS cache.
 func (d *DnsCache) Query(addr string) (string, bool) {
-	ipPort, ok := d.ipPortLib.Load(addr)
-	if !ok {
+	opt := d.ipPortLib.Load(addr)
+	if opt.IsNone() {
 		return "", false
 	}
-	return ipPort.(string), true
+	return opt.Unwrap(), true
 }
 
 // buildClient creates, configures, and returns a *http.Client type.

@@ -2,14 +2,15 @@ package beanstalkd
 
 import (
 	"net/url"
+
+	"github.com/andeya/pholcus/config"
+	"github.com/andeya/pholcus/logs"
 	"github.com/kr/beanstalk"
-	"github.com/henrylee2cn/pholcus/logs"
-	"github.com/henrylee2cn/pholcus/config"
 	"github.com/pkg/errors"
 )
 
 type BeanstalkdClient struct {
-	Conn     *beanstalk.Conn
+	Conn *beanstalk.Conn
 	Tube string
 }
 
@@ -43,7 +44,7 @@ func (srv *BeanstalkdClient) Send(content url.Values) {
 		return
 	}
 	data := content.Encode()
-	tube := &beanstalk.Tube{srv.Conn, srv.Tube}
+	tube := &beanstalk.Tube{Conn: srv.Conn, Name: srv.Tube}
 
 	_, err := tube.Put([]byte(data), 1, 0, 0)
 	if err != nil {

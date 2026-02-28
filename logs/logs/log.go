@@ -34,7 +34,7 @@
 //
 //  more docs http://beego.me/docs/module/logs.md
 
-//  Modified By henrylee2cn
+//  Modified By andeya
 
 package logs
 

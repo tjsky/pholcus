@@ -1,4 +1,4 @@
-// Copyright 2015 henrylee2cn Author. All Rights Reserved.
+// Copyright 2015 andeya Author. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ package surfer
 
 import (
 	"io"
-	"io/ioutil"
+
 	"log"
 	"net/http"
 	"net/url"
@@ -42,7 +42,7 @@ func AutoToUTF8(resp *http.Response) error {
 
 // 读取完整响应流正文
 func BodyBytes(resp *http.Response) ([]byte, error) {
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	return body, err
 }
@@ -69,11 +69,8 @@ func IsDirExists(path string) bool {
 
 	if err != nil {
 		return os.IsExist(err)
-	} else {
-		return fi.IsDir()
 	}
-
-	panic("util isDirExists not reached")
+	return fi.IsDir()
 }
 
 // The IsFileExists judges path is file or not.
@@ -82,11 +79,8 @@ func IsFileExists(path string) bool {
 
 	if err != nil {
 		return os.IsExist(err)
-	} else {
-		return !fi.IsDir()
 	}
-
-	panic("util isFileExists not reached")
+	return !fi.IsDir()
 }
 
 // 遍历目录，可指定后缀

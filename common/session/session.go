@@ -16,13 +16,15 @@
 //
 // Usage:
 // import(
-//   "github.com/astaxie/beego/session"
+//
+//	"github.com/astaxie/beego/session"
+//
 // )
 //
-//	func init() {
-//      globalSessions, _ = session.NewManager("memory", `{"cookieName":"gosessionid", "enableSetCookie,omitempty": true, "gclifetime":3600, "maxLifetime": 3600, "secure": false, "cookieLifeTime": 3600, "providerConfig": ""}`)
-//		go globalSessions.GC()
-//	}
+//		func init() {
+//	     globalSessions, _ = session.NewManager("memory", `{"cookieName":"gosessionid", "enableSetCookie,omitempty": true, "gclifetime":3600, "maxLifetime": 3600, "secure": false, "cookieLifeTime": 3600, "providerConfig": ""}`)
+//			go globalSessions.GC()
+//		}
 //
 // more docs: http://beego.me/docs/module/session.md
 package session

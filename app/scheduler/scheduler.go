@@ -3,10 +3,10 @@ package scheduler
 import (
 	"sync"
 
-	"github.com/henrylee2cn/pholcus/app/aid/proxy"
-	"github.com/henrylee2cn/pholcus/logs"
-	"github.com/henrylee2cn/pholcus/runtime/cache"
-	"github.com/henrylee2cn/pholcus/runtime/status"
+	"github.com/andeya/pholcus/app/aid/proxy"
+	"github.com/andeya/pholcus/logs"
+	"github.com/andeya/pholcus/runtime/cache"
+	"github.com/andeya/pholcus/runtime/status"
 )
 
 // 调度器
@@ -76,7 +76,6 @@ func PauseRecover() {
 
 // 终止任务
 func Stop() {
-	// println("scheduler^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
 	sdl.Lock()
 	defer sdl.Unlock()
 	sdl.status = status.STOP
@@ -89,7 +88,6 @@ func Stop() {
 	// }
 	close(sdl.count)
 	sdl.matrices = []*Matrix{}
-	// println("scheduler$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
 }
 
 // 每个spider实例分配到的平均资源量

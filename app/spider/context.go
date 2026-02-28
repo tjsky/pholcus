@@ -3,7 +3,7 @@ package spider
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
+
 	"mime"
 	"net/http"
 	"path"
@@ -14,11 +14,11 @@ import (
 
 	"golang.org/x/net/html/charset"
 
-	"github.com/henrylee2cn/pholcus/app/downloader/request"
-	"github.com/henrylee2cn/pholcus/app/pipeline/collector/data"
-	"github.com/henrylee2cn/pholcus/common/goquery"
-	"github.com/henrylee2cn/pholcus/common/util"
-	"github.com/henrylee2cn/pholcus/logs"
+	"github.com/andeya/pholcus/app/downloader/request"
+	"github.com/andeya/pholcus/app/pipeline/collector/data"
+	"github.com/andeya/pholcus/common/goquery"
+	"github.com/andeya/pholcus/common/util"
+	"github.com/andeya/pholcus/logs"
 )
 
 type Context struct {
@@ -55,7 +55,9 @@ func GetContext(sp *Spider, req *request.Request) *Context {
 
 func PutContext(ctx *Context) {
 	if ctx.Response != nil {
-		ctx.Response.Body.Close() // too many open files bug remove
+		if ctx.Response.Body != nil {
+			ctx.Response.Body.Close()
+		}
 		ctx.Response = nil
 	}
 	ctx.items = ctx.items[:0]
@@ -94,8 +96,9 @@ func (self *Context) SetError(err error) {
 // Request.DownloaderID指定下载器ID，0为默认的Surf高并发下载器，功能完备，1为PhantomJS下载器，特点破防力强，速度慢，低并发。
 // 默认自动补填Referer。
 func (self *Context) AddQueue(req *request.Request) *Context {
-	// 若已主动终止任务，则崩溃爬虫协程
-	self.spider.tryPanic()
+	if self.spider.tryStop() != nil {
+		return self
+	}
 
 	err := req.
 		SetSpiderName(self.spider.GetName()).
@@ -118,8 +121,9 @@ func (self *Context) AddQueue(req *request.Request) *Context {
 
 // 用于动态规则添加请求。
 func (self *Context) JsAddQueue(jreq map[string]interface{}) *Context {
-	// 若已主动终止任务，则崩溃爬虫协程
-	self.spider.tryPanic()
+	if self.spider.tryStop() != nil {
+		return self
+	}
 
 	req := &request.Request{}
 	u, ok := jreq["Url"].(string)
@@ -221,11 +225,14 @@ func (self *Context) Output(item interface{}, ruleName ...string) {
 // 输出文件。
 // nameOrExt指定文件名或仅扩展名，为空时默认保持原文件名（包括扩展名）不变。
 func (self *Context) FileOutput(nameOrExt ...string) {
-	// 读取完整文件流
-	bytes, err := ioutil.ReadAll(self.Response.Body)
+	if self.Response == nil || self.Response.Body == nil {
+		logs.Log.Warning(" *     [FileOutput]: Response or Body is nil for %s", self.GetUrl())
+		return
+	}
+	bytes, err := io.ReadAll(self.Response.Body)
 	self.Response.Body.Close()
 	if err != nil {
-		panic(err.Error())
+		logs.Log.Error(" *     [FileOutput]: %v", err)
 		return
 	}
 
@@ -306,8 +313,9 @@ func (self *Context) UpsertItemField(field string, ruleName ...string) (index in
 // 调用指定Rule下辅助函数AidFunc()。
 // 用ruleName指定匹配的AidFunc，为空时默认当前规则。
 func (self *Context) Aid(aid map[string]interface{}, ruleName ...string) interface{} {
-	// 若已主动终止任务，则崩溃爬虫协程
-	self.spider.tryPanic()
+	if self.spider.tryStop() != nil {
+		return nil
+	}
 
 	_, rule, found := self.getRule(ruleName...)
 	if !found {
@@ -328,8 +336,9 @@ func (self *Context) Aid(aid map[string]interface{}, ruleName ...string) interfa
 // 解析响应流。
 // 用ruleName指定匹配的ParseFunc字段，为空时默认调用Root()。
 func (self *Context) Parse(ruleName ...string) *Context {
-	// 若已主动终止任务，则崩溃爬虫协程
-	self.spider.tryPanic()
+	if self.spider.tryStop() != nil {
+		return self
+	}
 
 	_ruleName, rule, found := self.getRule(ruleName...)
 	if self.Response != nil {
@@ -392,8 +401,9 @@ func (self *Context) ResetText(body string) *Context {
 
 // 获取下载错误。
 func (self *Context) GetError() error {
-	// 若已主动终止任务，则崩溃爬虫协程
-	self.spider.tryPanic()
+	if err := self.spider.tryStop(); err != nil {
+		return err
+	}
 	return self.err
 }
 
@@ -414,6 +424,9 @@ func (self *Context) GetResponse() *http.Response {
 
 // 获取响应状态码。
 func (self *Context) GetStatusCode() int {
+	if self.Response == nil {
+		return 0
+	}
 	return self.Response.StatusCode
 }
 
@@ -535,31 +548,50 @@ func (self *Context) GetMethod() string {
 }
 
 func (self *Context) GetHost() string {
+	if self.Response == nil || self.Response.Request == nil || self.Response.Request.URL == nil {
+		return ""
+	}
 	return self.Response.Request.URL.Host
 }
 
 // 获取响应头信息。
 func (self *Context) GetHeader() http.Header {
+	if self.Response == nil {
+		return http.Header{}
+	}
 	return self.Response.Header
 }
 
 // 获取请求头信息。
 func (self *Context) GetRequestHeader() http.Header {
+	if self.Response == nil || self.Response.Request == nil {
+		return http.Header{}
+	}
 	return self.Response.Request.Header
 }
 
 func (self *Context) GetReferer() string {
+	if self.Response == nil || self.Response.Request == nil {
+		return ""
+	}
 	return self.Response.Request.Header.Get("Referer")
 }
 
 // 获取响应的Cookie。
 func (self *Context) GetCookie() string {
+	if self.Response == nil {
+		return ""
+	}
 	return self.Response.Header.Get("Set-Cookie")
 }
 
 // GetHtmlParser returns goquery object binded to target crawl result.
 func (self *Context) GetDom() *goquery.Document {
 	if self.dom == nil {
+		if self.Response == nil {
+			logs.Log.Warning(" *     [GetDom]: Response is nil for %s", self.GetUrl())
+			return nil
+		}
 		self.initDom()
 	}
 	return self.dom
@@ -568,6 +600,10 @@ func (self *Context) GetDom() *goquery.Document {
 // GetBodyStr returns plain string crawled.
 func (self *Context) GetText() string {
 	if self.text == nil {
+		if self.Response == nil {
+			logs.Log.Warning(" *     [GetText]: Response is nil for %s", self.GetUrl())
+			return ""
+		}
 		self.initText()
 	}
 	return util.Bytes2String(self.text)
@@ -642,7 +678,7 @@ func (self *Context) initText() {
 			}
 
 			if err == nil {
-				self.text, err = ioutil.ReadAll(destReader)
+				self.text, err = io.ReadAll(destReader)
 				if err == nil {
 					self.Response.Body.Close()
 					return
@@ -656,13 +692,11 @@ func (self *Context) initText() {
 	}
 
 	// 不做转码处理
-	self.text, err = ioutil.ReadAll(self.Response.Body)
+	self.text, err = io.ReadAll(self.Response.Body)
 	self.Response.Body.Close()
 	if err != nil {
 		panic(err.Error())
-		return
 	}
-
 }
 
 /**

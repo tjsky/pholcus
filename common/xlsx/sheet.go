@@ -72,7 +72,7 @@ func (s *Sheet) Col(idx int) *Col {
 //
 // For example:
 //
-//    cell := sheet.Cell(0,0)
+//	cell := sheet.Cell(0,0)
 //
 // ... would set the variable "cell" to contain a Cell struct
 // containing the data from the field "A1" on the spreadsheet.
@@ -84,7 +84,7 @@ func (sh *Sheet) Cell(row, col int) *Cell {
 	return new(Cell)
 }
 
-//Set the width of a single column or multiple columns.
+// Set the width of a single column or multiple columns.
 func (s *Sheet) SetColWidth(startcol, endcol int, width float64) error {
 	if startcol > endcol {
 		return fmt.Errorf("Could not set width for range %d-%d: startcol must be less than endcol.", startcol, endcol)

@@ -3,14 +3,14 @@ package config
 import (
 	"strings"
 
-	"github.com/henrylee2cn/pholcus/logs/logs"
-	"github.com/henrylee2cn/pholcus/runtime/cache"
+	"github.com/andeya/pholcus/logs/logs"
+	"github.com/andeya/pholcus/runtime/cache"
 )
 
 // 软件信息。
 const (
-	VERSION   string = "v1.3.4"                                      // 软件版本号
-	AUTHOR    string = "henrylee2cn"                                 // 软件作者
+	VERSION   string = "v1.3.5"                                      // 软件版本号
+	AUTHOR    string = "andeya"                                      // 软件作者
 	NAME      string = "Pholcus幽灵蛛数据采集"                              // 软件名
 	FULL_NAME string = NAME + "_" + VERSION + " （by " + AUTHOR + "）" // 软件全称
 	TAG       string = "pholcus"                                     // 软件标识符
@@ -27,7 +27,8 @@ const (
 	PHANTOMJS_TEMP string = CACHE_DIR                       // Surfer-Phantom下载器：js文件临时目录
 	HISTORY_TAG    string = "history"                       // 历史记录的标识符
 	HISTORY_DIR    string = WORK_ROOT + "/" + HISTORY_TAG   // excel或csv输出方式下，历史记录目录
-	SPIDER_EXT     string = ".pholcus.html"                 // 动态规则扩展名
+	SPIDER_EXT     string = ".pholcus.xml"                  // 动态规则扩展名（推荐）
+	SPIDER_EXT_OLD string = ".pholcus.html"                 // 动态规则扩展名（兼容旧版）
 )
 
 // 来自配置文件的配置项。

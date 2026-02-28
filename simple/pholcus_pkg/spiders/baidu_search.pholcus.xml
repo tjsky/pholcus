@@ -1,0 +1,60 @@
+<Spider>
+    <Name>百度搜索采集动态规则</Name>
+    <Description>百度搜索采集 [http://www.baidu.com/s?wd=关键词]</Description>
+    <Pausetime>1000</Pausetime>
+    <EnableLimit>true</EnableLimit>
+    <EnableKeyin>true</EnableKeyin>
+    <EnableCookie>false</EnableCookie>
+    <NotDefaultField>true</NotDefaultField>
+    <Namespace>
+        <Script></Script>
+    </Namespace>
+    <SubNamespace>
+        <Script></Script>
+    </SubNamespace>
+    <Root>
+        <Script param="ctx">
+        var keyin = ctx.GetKeyin();
+        var url = "http://www.baidu.com/s?wd=" + encodeURIComponent(keyin) + "&pn=0";
+        ctx.JsAddQueue({
+            Url: url,
+            Rule: "搜索结果"
+        });
+        </Script>
+    </Root>
+    <Rule name="搜索结果">
+        <ParseFunc>
+            <Script param="ctx">
+            var dom = ctx.GetDom();
+            var items = dom.Find("div.result,div.result-op");
+            var length = items.Length();
+
+            for (var i = 0; i < length; i++) {
+                var item = items.Eq(i);
+                var title = item.Find("h3 a").Text();
+                var href = item.Find("h3 a").AttrOr("href", "");
+                var summary = item.Find(".c-abstract,.content-right_8Zs40").Text();
+
+                if (title === "" || href === "") {
+                    continue;
+                }
+
+                ctx.Output({
+                    "标题": title,
+                    "链接": href,
+                    "摘要": summary
+                });
+            }
+
+            var nextPage = dom.Find("a.n").Last();
+            var nextHref = nextPage.AttrOr("href", "");
+            if (nextHref !== "") {
+                ctx.JsAddQueue({
+                    Url: "http://www.baidu.com" + nextHref,
+                    Rule: "搜索结果"
+                });
+            }
+            </Script>
+        </ParseFunc>
+    </Rule>
+</Spider>

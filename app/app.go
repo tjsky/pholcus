@@ -6,20 +6,21 @@ import (
 	"io"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
-	"github.com/henrylee2cn/pholcus/app/crawler"
-	"github.com/henrylee2cn/pholcus/app/distribute"
-	"github.com/henrylee2cn/pholcus/app/pipeline"
-	"github.com/henrylee2cn/pholcus/app/pipeline/collector"
-	"github.com/henrylee2cn/pholcus/app/scheduler"
-	"github.com/henrylee2cn/pholcus/app/spider"
-	"github.com/henrylee2cn/pholcus/logs"
-	"github.com/henrylee2cn/pholcus/runtime/cache"
-	"github.com/henrylee2cn/pholcus/runtime/status"
-	"github.com/henrylee2cn/teleport"
+	"github.com/andeya/pholcus/app/crawler"
+	"github.com/andeya/pholcus/app/distribute"
+	"github.com/andeya/pholcus/app/distribute/teleport"
+	"github.com/andeya/pholcus/app/pipeline"
+	"github.com/andeya/pholcus/app/pipeline/collector"
+	"github.com/andeya/pholcus/app/scheduler"
+	"github.com/andeya/pholcus/app/spider"
+	"github.com/andeya/pholcus/logs"
+	"github.com/andeya/pholcus/runtime/cache"
+	"github.com/andeya/pholcus/runtime/status"
 )
 
 type (
@@ -130,7 +131,7 @@ func (self *Logic) GetAppConf(k ...string) interface{} {
 	if len(k) == 0 {
 		return self.AppConf
 	}
-	key := strings.Title(k[0])
+	key := titleCase(k[0])
 	acv := reflect.ValueOf(self.AppConf).Elem()
 	return acv.FieldByName(key).Interface()
 }
@@ -148,7 +149,7 @@ func (self *Logic) SetAppConf(k string, v interface{}) App {
 		v = int(1)
 	}
 	acv := reflect.ValueOf(self.AppConf).Elem()
-	key := strings.Title(k)
+	key := titleCase(k)
 	if acv.FieldByName(key).CanSet() {
 		acv.FieldByName(key).Set(reflect.ValueOf(v))
 	}
@@ -327,12 +328,9 @@ func (self *Logic) Stop() {
 	if self.status != status.STOP {
 		// 不可颠倒停止的顺序
 		self.setStatus(status.STOP)
-		// println("scheduler.Stop()")
 		scheduler.Stop()
-		// println("self.CrawlerPool.Stop()")
 		self.CrawlerPool.Stop()
 	}
-	// println("wait self.IsStopped()")
 	for !self.IsStopped() {
 		time.Sleep(time.Second)
 	}
@@ -462,25 +460,29 @@ func (self *Logic) client() {
 
 // 客户端模式下获取任务
 func (self *Logic) downTask() *distribute.Task {
-ReStartLabel:
-	if self.Status() == status.STOP || self.Status() == status.STOPPED {
-		return nil
-	}
-	if self.CountNodes() == 0 && self.TaskJar.Len() == 0 {
-		time.Sleep(time.Second)
-		goto ReStartLabel
-	}
-
-	if self.TaskJar.Len() == 0 {
-		self.Request(nil, "task", "")
-		for self.TaskJar.Len() == 0 {
-			if self.CountNodes() == 0 {
-				goto ReStartLabel
-			}
-			time.Sleep(time.Second)
+	for {
+		if self.Status() == status.STOP || self.Status() == status.STOPPED {
+			return nil
 		}
+		if self.CountNodes() == 0 && self.TaskJar.Len() == 0 {
+			time.Sleep(time.Second)
+			continue
+		}
+
+		if self.TaskJar.Len() == 0 {
+			self.Request(nil, "task", "")
+			for self.TaskJar.Len() == 0 {
+				if self.CountNodes() == 0 {
+					break
+				}
+				time.Sleep(time.Second)
+			}
+			if self.TaskJar.Len() == 0 {
+				continue
+			}
+		}
+		return self.TaskJar.Pull()
 	}
-	return self.TaskJar.Pull()
 }
 
 // client模式下从task准备运行条件
@@ -548,10 +550,8 @@ func (self *Logic) goRun(count int) {
 	// 执行任务
 	var i int
 	for i = 0; i < count && self.Status() != status.STOP; i++ {
-	pause:
-		if self.IsPause() {
+		for self.IsPause() {
 			time.Sleep(time.Second)
-			goto pause
 		}
 		// 从爬行队列取出空闲蜘蛛，并发执行
 		c := self.CrawlerPool.Use()
@@ -681,4 +681,12 @@ func (self *Logic) setTask(task *distribute.Task) {
 	task.Limit = self.AppConf.Limit
 	task.ProxyMinute = self.AppConf.ProxyMinute
 	task.Keyins = self.AppConf.Keyins
+}
+
+func titleCase(s string) string {
+	if s == "" {
+		return s
+	}
+	r, size := utf8.DecodeRuneInString(s)
+	return string(unicode.ToUpper(r)) + s[size:]
 }

@@ -1,7 +1,7 @@
 package proxy
 
 import (
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -13,11 +13,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/henrylee2cn/pholcus/app/downloader/request"
-	"github.com/henrylee2cn/pholcus/app/downloader/surfer"
-	"github.com/henrylee2cn/pholcus/common/ping"
-	"github.com/henrylee2cn/pholcus/config"
-	"github.com/henrylee2cn/pholcus/logs"
+	"github.com/andeya/pholcus/app/downloader/request"
+	"github.com/andeya/pholcus/app/downloader/surfer"
+	"github.com/andeya/pholcus/common/ping"
+	"github.com/andeya/pholcus/config"
+	"github.com/andeya/pholcus/logs"
 )
 
 type Proxy struct {
@@ -70,7 +70,7 @@ func (self *Proxy) Update() *Proxy {
 		// logs.Log.Error("Error: %v\n", err)
 		return self
 	}
-	b, _ := ioutil.ReadAll(f)
+	b, _ := io.ReadAll(f)
 	f.Close()
 
 	proxysIPType := self.proxyIPTypeRegexp.FindAllString(string(b), -1)

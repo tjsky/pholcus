@@ -17,7 +17,7 @@ package session
 import (
 	"errors"
 	"io"
-	"io/ioutil"
+
 	"net/http"
 	"os"
 	"path"
@@ -135,7 +135,7 @@ func (fp *FileProvider) SessionRead(sid string) (Store, error) {
 	}
 	os.Chtimes(path.Join(fp.savePath, string(sid[0]), string(sid[1]), sid), time.Now(), time.Now())
 	var kv map[interface{}]interface{}
-	b, err := ioutil.ReadAll(f)
+	b, err := io.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func (fp *FileProvider) SessionRegenerate(oldsid, sid string) (Store, error) {
 	os.Remove(path.Join(fp.savePath, string(oldsid[0]), string(oldsid[1])))
 	os.Chtimes(path.Join(fp.savePath, string(sid[0]), string(sid[1]), sid), time.Now(), time.Now())
 	var kv map[interface{}]interface{}
-	b, err := ioutil.ReadAll(newf)
+	b, err := io.ReadAll(newf)
 	if err != nil {
 		return nil, err
 	}

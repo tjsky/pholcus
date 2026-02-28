@@ -1,8 +1,9 @@
 package pinyin_test
 
 import (
-	"github.com/henrylee2cn/pholcus/common/pinyin"
 	"testing"
+
+	"github.com/andeya/pholcus/common/pinyin"
 )
 
 func TestExamplePinyin_default(t *testing.T) {

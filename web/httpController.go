@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"text/template"
 
-	"github.com/henrylee2cn/pholcus/app"
-	"github.com/henrylee2cn/pholcus/common/session"
-	"github.com/henrylee2cn/pholcus/config"
-	"github.com/henrylee2cn/pholcus/logs"
-	"github.com/henrylee2cn/pholcus/runtime/status"
+	"github.com/andeya/pholcus/app"
+	"github.com/andeya/pholcus/common/session"
+	"github.com/andeya/pholcus/config"
+	"github.com/andeya/pholcus/logs"
+	"github.com/andeya/pholcus/runtime/status"
 )
 
 var globalSessions *session.Manager

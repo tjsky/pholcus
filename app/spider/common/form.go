@@ -4,15 +4,15 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/henrylee2cn/pholcus/common/goquery"
+	"github.com/andeya/pholcus/common/goquery"
 
-	"github.com/henrylee2cn/pholcus/app/downloader/request"
-	. "github.com/henrylee2cn/pholcus/app/spider"
+	"github.com/andeya/pholcus/app/downloader/request"
+	spider "github.com/andeya/pholcus/app/spider"
 )
 
 // Form is the default form element.
 type Form struct {
-	ctx       *Context
+	ctx       *spider.Context
 	rule      string
 	selection *goquery.Selection
 	method    string
@@ -22,7 +22,7 @@ type Form struct {
 }
 
 // NewForm creates and returns a *Form type.
-func NewForm(ctx *Context, rule string, u string, form *goquery.Selection, schemeAndHost ...string) *Form {
+func NewForm(ctx *spider.Context, rule string, u string, form *goquery.Selection, schemeAndHost ...string) *Form {
 	fields, buttons := serializeForm(form)
 	if len(schemeAndHost) == 0 {
 		aurl, _ := url.Parse(u)
@@ -137,8 +137,6 @@ func (self *Form) send(buttonName, buttonValue string) bool {
 		})
 		return true
 	}
-
-	return false
 }
 
 // Serialize converts the form fields into a url.Values type.

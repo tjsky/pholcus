@@ -1,16 +1,19 @@
 package spider
 
 import (
+	"errors"
 	"math"
 	"sync"
 	"time"
 
-	"github.com/henrylee2cn/pholcus/app/downloader/request"
-	"github.com/henrylee2cn/pholcus/app/scheduler"
-	"github.com/henrylee2cn/pholcus/common/util"
-	"github.com/henrylee2cn/pholcus/logs"
-	"github.com/henrylee2cn/pholcus/runtime/status"
+	"github.com/andeya/pholcus/app/downloader/request"
+	"github.com/andeya/pholcus/app/scheduler"
+	"github.com/andeya/pholcus/common/util"
+	"github.com/andeya/pholcus/logs"
+	"github.com/andeya/pholcus/runtime/status"
 )
+
+var ErrForcedStop = errors.New("forced stop")
 
 const (
 	KEYIN       = util.USE_KEYIN // 若使用Spider.Keyin，则须在规则中设置初始值为USE_KEYIN
@@ -56,9 +59,9 @@ type (
 )
 
 // 添加自身到蜘蛛菜单
-func (self Spider) Register() *Spider {
+func (self *Spider) Register() *Spider {
 	self.status = status.STOPPED
-	return Species.Add(&self)
+	return Species.Add(self)
 }
 
 // 指定规则的获取结果的字段名列表
@@ -318,11 +321,12 @@ func (self *Spider) IsStopping() bool {
 	return self.status == status.STOP
 }
 
-// 若已主动终止任务，则崩溃爬虫协程
-func (self *Spider) tryPanic() {
+// tryStop 检查是否已主动终止任务，若是则返回 ErrForcedStop。
+func (self *Spider) tryStop() error {
 	if self.IsStopping() {
-		panic(FORCED_STOP)
+		return ErrForcedStop
 	}
+	return nil
 }
 
 // 退出任务前收尾工作

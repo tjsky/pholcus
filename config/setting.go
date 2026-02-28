@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/henrylee2cn/pholcus/common/config"
-	"github.com/henrylee2cn/pholcus/runtime/status"
+	"github.com/andeya/pholcus/common/config"
+	"github.com/andeya/pholcus/runtime/status"
 )
 
 // 配置文件涉及的默认配置。
@@ -57,6 +57,9 @@ var setting = func() config.Configer {
 	iniconf, err := config.NewConfig("ini", CONFIG)
 	if err != nil {
 		file, err := os.Create(CONFIG)
+		if err != nil {
+			panic(err)
+		}
 		file.Close()
 		iniconf, err = config.NewConfig("ini", CONFIG)
 		if err != nil {

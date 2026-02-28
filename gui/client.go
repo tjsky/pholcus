@@ -1,36 +1,38 @@
+//go:build windows
+
 package gui
 
 import (
-	. "github.com/lxn/walk/declarative"
+	"github.com/lxn/walk/declarative"
 
-	"github.com/henrylee2cn/pholcus/app"
-	"github.com/henrylee2cn/pholcus/config"
+	"github.com/andeya/pholcus/app"
+	"github.com/andeya/pholcus/config"
 )
 
 func clientWindow() {
 	mw.Close()
-	if err := (MainWindow{
+	if err := (declarative.MainWindow{
 		AssignTo: &mw,
-		DataBinder: DataBinder{
+		DataBinder: declarative.DataBinder{
 			AssignTo:       &db,
 			DataSource:     Input,
-			ErrorPresenter: ErrorPresenterRef{&ep},
+			ErrorPresenter: declarative.ErrorPresenterRef{&ep},
 		},
 		Title:    config.FULL_NAME + "                                                          【 运行模式 -> 客户端 】",
-		MinSize:  Size{1100, 600},
-		Layout:   VBox{MarginsZero: true},
-		Children: []Widget{
-		// Composite{
-		// 	Layout:  HBox{},
-		// 	MaxSize: Size{1100, 150},
-		// 	Children: []Widget{
-		// 		PushButton{
-		// 			MaxSize:  Size{1000, 150},
-		// 			Text:     "断开服务器连接",
-		// 			AssignTo: &runStopBtn,
-		// 		},
-		// 	},
-		// },
+		MinSize:  declarative.Size{1100, 600},
+		Layout:   declarative.VBox{MarginsZero: true},
+		Children: []declarative.Widget{
+			// Composite{
+			// 	Layout:  HBox{},
+			// 	MaxSize: Size{1100, 150},
+			// 	Children: []Widget{
+			// 		PushButton{
+			// 			MaxSize:  Size{1000, 150},
+			// 			Text:     "断开服务器连接",
+			// 			AssignTo: &runStopBtn,
+			// 		},
+			// 	},
+			// },
 		},
 	}.Create()); err != nil {
 		panic(err)

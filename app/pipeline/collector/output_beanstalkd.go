@@ -1,12 +1,13 @@
 package collector
 
 import (
-	"fmt"
-	"github.com/henrylee2cn/pholcus/common/util"
-	"github.com/henrylee2cn/pholcus/common/beanstalkd"
-	"net/url"
 	"encoding/json"
+	"fmt"
+	"net/url"
 	"time"
+
+	"github.com/andeya/pholcus/common/beanstalkd"
+	"github.com/andeya/pholcus/common/util"
 )
 
 /************************ beanstalkd 输出 ***************************/

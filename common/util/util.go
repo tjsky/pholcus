@@ -22,7 +22,7 @@ import (
 
 	"golang.org/x/net/html/charset"
 
-	"github.com/henrylee2cn/pholcus/logs"
+	"github.com/andeya/pholcus/logs"
 )
 
 const (
@@ -81,11 +81,8 @@ func IsDirExists(path string) bool {
 
 	if err != nil {
 		return os.IsExist(err)
-	} else {
-		return fi.IsDir()
 	}
-
-	panic("util isDirExists not reached")
+	return fi.IsDir()
 }
 
 // The IsFileExists judges path is file or not.
@@ -94,11 +91,8 @@ func IsFileExists(path string) bool {
 
 	if err != nil {
 		return os.IsExist(err)
-	} else {
-		return !fi.IsDir()
 	}
-
-	panic("util isFileExists not reached")
+	return !fi.IsDir()
 }
 
 // 遍历文件，可指定后缀
@@ -270,7 +264,7 @@ func XML2mapstr(xmldoc string) map[string]string {
 	return m
 }
 
-//string to hash
+// string to hash
 func MakeHash(s string) string {
 	const IEEE = 0xedb88320
 	var IEEETable = crc32.MakeTable(IEEE)
@@ -313,7 +307,7 @@ func JsonString(obj interface{}) string {
 	return r
 }
 
-//检查并打印错误
+// 检查并打印错误
 func CheckErr(err error) {
 	if err != nil {
 		logs.Log.Error("%v", err)
@@ -362,7 +356,6 @@ func FileNameReplace(fileName string) string {
 }
 
 // 将Excel工作表名中非法字符替换为下划线
-//
 func ExcelSheetNameReplace(fileName string) string {
 	r := []rune(fileName)
 	size := len(r)

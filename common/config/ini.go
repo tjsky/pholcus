@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"sort"
@@ -178,7 +177,7 @@ func (ini *IniConfig) ParseData(data []byte) (Configer, error) {
 	// Save memory data to temporary file
 	tmpName := path.Join(os.TempDir(), "beego", fmt.Sprintf("%d", time.Now().Nanosecond()))
 	os.MkdirAll(path.Dir(tmpName), os.ModePerm)
-	if err := ioutil.WriteFile(tmpName, data, 0655); err != nil {
+	if err := os.WriteFile(tmpName, data, 0655); err != nil {
 		return nil, err
 	}
 	return ini.Parse(tmpName)

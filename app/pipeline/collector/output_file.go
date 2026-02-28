@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	"github.com/henrylee2cn/pholcus/app/pipeline/collector/data"
-	bytesSize "github.com/henrylee2cn/pholcus/common/bytes"
-	"github.com/henrylee2cn/pholcus/common/util"
-	"github.com/henrylee2cn/pholcus/config"
-	"github.com/henrylee2cn/pholcus/logs"
-	// "github.com/henrylee2cn/pholcus/runtime/cache"
+	"github.com/andeya/pholcus/app/pipeline/collector/data"
+	bytesSize "github.com/andeya/pholcus/common/bytes"
+	"github.com/andeya/pholcus/common/util"
+	"github.com/andeya/pholcus/config"
+	"github.com/andeya/pholcus/logs"
+	// "github.com/andeya/pholcus/runtime/cache"
 )
 
 // 文件输出
@@ -52,9 +52,9 @@ func (self *Collector) outputFile(file data.FileCell) {
 		)
 		return
 	}
+	defer f.Close()
 
 	size, err := io.Copy(f, bytes.NewReader(file["Bytes"].([]byte)))
-	f.Close()
 	if err != nil {
 		logs.Log.Error(
 			" *     Fail  [文件下载：%v | KEYIN：%v | 批次：%v]   %v (%s) [ERROR]  %v\n",

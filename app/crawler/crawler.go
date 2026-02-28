@@ -6,12 +6,12 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/henrylee2cn/pholcus/app/downloader"
-	"github.com/henrylee2cn/pholcus/app/downloader/request"
-	"github.com/henrylee2cn/pholcus/app/pipeline"
-	"github.com/henrylee2cn/pholcus/app/spider"
-	"github.com/henrylee2cn/pholcus/logs"
-	"github.com/henrylee2cn/pholcus/runtime/cache"
+	"github.com/andeya/pholcus/app/downloader"
+	"github.com/andeya/pholcus/app/downloader/request"
+	"github.com/andeya/pholcus/app/pipeline"
+	"github.com/andeya/pholcus/app/spider"
+	"github.com/andeya/pholcus/logs"
+	"github.com/andeya/pholcus/runtime/cache"
 )
 
 // 采集引擎
@@ -119,16 +119,12 @@ func (self *crawler) Process(req *request.Request) {
 	defer func() {
 		if p := recover(); p != nil {
 			if sp.IsStopping() {
-				// println("Process$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
 				return
 			}
-			// 返回是否作为新的失败请求被添加至队列尾部
 			if sp.DoHistory(req, false) {
-				// 统计失败数
 				cache.PageFailCount()
 			}
-			// 提示错误
-			stack := make([]byte, 4<<10) //4KB
+			stack := make([]byte, 4<<10)
 			length := runtime.Stack(stack, true)
 			start := bytes.Index(stack, []byte("/src/runtime/panic.go"))
 			stack = stack[start:length]
@@ -195,12 +191,12 @@ func (self *crawler) GetOne() *request.Request {
 	return self.Spider.RequestPull()
 }
 
-//从调度使用一个资源空位
+// 从调度使用一个资源空位
 func (self *crawler) UseOne() {
 	self.Spider.RequestUse()
 }
 
-//从调度释放一个资源空位
+// 从调度释放一个资源空位
 func (self *crawler) FreeOne() {
 	self.Spider.RequestFree()
 }

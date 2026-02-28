@@ -5,11 +5,11 @@ import (
 
 	mgov2 "gopkg.in/mgo.v2"
 
-	"github.com/henrylee2cn/pholcus/common/mgo"
-	"github.com/henrylee2cn/pholcus/common/pool"
-	"github.com/henrylee2cn/pholcus/common/util"
-	"github.com/henrylee2cn/pholcus/config"
-	"github.com/henrylee2cn/pholcus/logs"
+	"github.com/andeya/pholcus/common/mgo"
+	"github.com/andeya/pholcus/common/pool"
+	"github.com/andeya/pholcus/common/util"
+	"github.com/andeya/pholcus/config"
+	"github.com/andeya/pholcus/logs"
 )
 
 /************************ MongoDB 输出 ***************************/

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/henrylee2cn/pholcus/common/util"
+	"github.com/andeya/pholcus/common/util"
 )
 
 // Request represents object waiting for being crawled.
@@ -342,6 +342,43 @@ func (self *Request) MarshalJSON() ([]byte, error) {
 		self.Temp.set(k, v)
 		self.TempIsJson[k] = true
 	}
-	b, err := json.Marshal(*self)
-	return b, err
+	// Marshal a struct without the mutex to avoid copying sync.RWMutex
+	j := struct {
+		Spider        string
+		Url           string
+		Rule          string
+		Method        string
+		Header        http.Header
+		EnableCookie  bool
+		PostData      string
+		DialTimeout   time.Duration
+		ConnTimeout   time.Duration
+		TryTimes      int
+		RetryPause    time.Duration
+		RedirectTimes int
+		Temp          Temp
+		TempIsJson    map[string]bool
+		Priority      int
+		Reloadable    bool
+		DownloaderID  int
+	}{
+		Spider:        self.Spider,
+		Url:           self.Url,
+		Rule:          self.Rule,
+		Method:        self.Method,
+		Header:        self.Header,
+		EnableCookie:  self.EnableCookie,
+		PostData:      self.PostData,
+		DialTimeout:   self.DialTimeout,
+		ConnTimeout:   self.ConnTimeout,
+		TryTimes:      self.TryTimes,
+		RetryPause:    self.RetryPause,
+		RedirectTimes: self.RedirectTimes,
+		Temp:          self.Temp,
+		TempIsJson:    self.TempIsJson,
+		Priority:      self.Priority,
+		Reloadable:    self.Reloadable,
+		DownloaderID:  self.DownloaderID,
+	}
+	return json.Marshal(j)
 }

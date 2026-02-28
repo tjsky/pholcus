@@ -7,13 +7,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/henrylee2cn/pholcus/app"
-	"github.com/henrylee2cn/pholcus/cmd"
-	"github.com/henrylee2cn/pholcus/common/gc"
-	"github.com/henrylee2cn/pholcus/config"
-	"github.com/henrylee2cn/pholcus/runtime/cache"
-	"github.com/henrylee2cn/pholcus/runtime/status"
-	"github.com/henrylee2cn/pholcus/web"
+	"github.com/andeya/pholcus/app"
+	"github.com/andeya/pholcus/cmd"
+	"github.com/andeya/pholcus/common/gc"
+	"github.com/andeya/pholcus/config"
+	"github.com/andeya/pholcus/runtime/cache"
+	"github.com/andeya/pholcus/runtime/status"
+	"github.com/andeya/pholcus/web"
 )
 
 var (

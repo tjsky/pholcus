@@ -1,4 +1,4 @@
-// Copyright 2015 henrylee2cn Author. All Rights Reserved.
+// Copyright 2015 andeya Author. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package surfer
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"mime"
 	"net/http"
@@ -152,7 +152,7 @@ func (self *Phantom) Download(req Request) (resp *http.Response, err error) {
 			continue
 		}
 		var b []byte
-		b, err = ioutil.ReadAll(resp.Body)
+		b, err = io.ReadAll(resp.Body)
 		if err != nil {
 			continue
 		}
@@ -181,7 +181,7 @@ func (self *Phantom) Download(req Request) (resp *http.Response, err error) {
 				self.CookieJar.SetCookies(param.url, rc)
 			}
 		}
-		resp.Body = ioutil.NopCloser(strings.NewReader(retResp.Body))
+		resp.Body = io.NopCloser(strings.NewReader(retResp.Body))
 		break
 	}
 
@@ -195,7 +195,7 @@ func (self *Phantom) Download(req Request) (resp *http.Response, err error) {
 	return
 }
 
-//销毁js临时文件
+// 销毁js临时文件
 func (self *Phantom) DestroyJsFiles() {
 	p, _ := filepath.Split(self.TempJsDir)
 	if p == "" {

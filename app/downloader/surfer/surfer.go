@@ -1,4 +1,4 @@
-// Copyright 2015 henrylee2cn Author. All Rights Reserved.
+// Copyright 2015 andeya Author. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ var (
 	once_surf    sync.Once
 	once_phantom sync.Once
 	tempJsDir    = "./tmp"
-	// phantomjsFile = filepath.Clean(path.Join(os.Getenv("GOPATH"), `/src/github.com/henrylee2cn/surfer/phantomjs/phantomjs`))
+	// phantomjsFile = filepath.Clean(path.Join(os.Getenv("GOPATH"), `/src/github.com/andeya/surfer/phantomjs/phantomjs`))
 	phantomjsFile = `./phantomjs`
 	cookieJar, _  = cookiejar.New(nil)
 )
@@ -37,14 +37,14 @@ func Download(req Request) (resp *http.Response, err error) {
 	case SurfID:
 		once_surf.Do(func() { surf = New(cookieJar) })
 		resp, err = surf.Download(req)
-	case PhomtomJsID:
+	case PhantomJsID:
 		once_phantom.Do(func() { phantom = NewPhantom(phantomjsFile, tempJsDir, cookieJar) })
 		resp, err = phantom.Download(req)
 	}
 	return
 }
 
-//销毁Phantomjs的js临时文件
+// 销毁Phantomjs的js临时文件
 func DestroyJsFiles() {
 	if pt, ok := phantom.(*Phantom); ok {
 		pt.DestroyJsFiles()

@@ -6,11 +6,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/henrylee2cn/pholcus/app/aid/history"
-	"github.com/henrylee2cn/pholcus/app/downloader/request"
-	"github.com/henrylee2cn/pholcus/logs"
-	"github.com/henrylee2cn/pholcus/runtime/cache"
-	"github.com/henrylee2cn/pholcus/runtime/status"
+	"github.com/andeya/pholcus/app/aid/history"
+	"github.com/andeya/pholcus/app/downloader/request"
+	"github.com/andeya/pholcus/logs"
+	"github.com/andeya/pholcus/runtime/cache"
+	"github.com/andeya/pholcus/runtime/status"
 )
 
 // 一个Spider实例的请求矩阵
@@ -229,7 +229,6 @@ func (self *Matrix) TryFlushFailure() {
 // 等待处理中的请求完成
 func (self *Matrix) Wait() {
 	if sdl.checkStatus(status.STOP) {
-		// println("Wait$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
 		// 主动终止任务时，不等待运行中任务自然结束
 		return
 	}

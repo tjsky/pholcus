@@ -1,66 +1,68 @@
+//go:build windows
+
 package gui
 
 import (
 	"github.com/lxn/walk"
-	. "github.com/lxn/walk/declarative"
+	"github.com/lxn/walk/declarative"
 
-	"github.com/henrylee2cn/pholcus/config"
-	"github.com/henrylee2cn/pholcus/logs"
-	"github.com/henrylee2cn/pholcus/runtime/status"
+	"github.com/andeya/pholcus/config"
+	"github.com/andeya/pholcus/logs"
+	"github.com/andeya/pholcus/runtime/status"
 )
 
 func runmodeWindow() {
-	if err := (MainWindow{
+	if err := (declarative.MainWindow{
 		AssignTo: &mw,
-		DataBinder: DataBinder{
+		DataBinder: declarative.DataBinder{
 			AssignTo:       &db,
 			DataSource:     Input,
-			ErrorPresenter: ErrorPresenterRef{&ep},
+			ErrorPresenter: declarative.ErrorPresenterRef{&ep},
 		},
 		Title:   config.FULL_NAME,
-		MinSize: Size{450, 350},
-		Layout:  VBox{ /*MarginsZero: true*/ },
-		Children: []Widget{
+		MinSize: declarative.Size{450, 350},
+		Layout:  declarative.VBox{ /*MarginsZero: true*/ },
+		Children: []declarative.Widget{
 
-			RadioButtonGroupBox{
+			declarative.RadioButtonGroupBox{
 				AssignTo: &mode,
 				Title:    "*运行模式",
-				Layout:   HBox{},
-				MinSize:  Size{0, 70},
+				Layout:   declarative.HBox{},
+				MinSize:  declarative.Size{0, 70},
 
 				DataMember: "Mode",
-				Buttons: []RadioButton{
+				Buttons: []declarative.RadioButton{
 					{Text: GuiOpt.Mode[0].Key, Value: GuiOpt.Mode[0].Int},
 					{Text: GuiOpt.Mode[1].Key, Value: GuiOpt.Mode[1].Int},
 					{Text: GuiOpt.Mode[2].Key, Value: GuiOpt.Mode[2].Int},
 				},
 			},
 
-			VSplitter{
+			declarative.VSplitter{
 				AssignTo: &host,
-				MaxSize:  Size{0, 120},
-				Children: []Widget{
-					Label{
+				MaxSize:  declarative.Size{0, 120},
+				Children: []declarative.Widget{
+					declarative.Label{
 						Text: "分布式端口：（单机模式不填）",
 					},
-					NumberEdit{
-						Value:    Bind("Port"),
+					declarative.NumberEdit{
+						Value:    declarative.Bind("Port"),
 						Suffix:   "",
 						Decimals: 0,
 					},
 
-					Label{
+					declarative.Label{
 						Text: "主节点 URL：（客户端模式必填）",
 					},
-					LineEdit{
-						Text: Bind("Master"),
+					declarative.LineEdit{
+						Text: declarative.Bind("Master"),
 					},
 				},
 			},
 
-			PushButton{
+			declarative.PushButton{
 				Text:     "确认开始",
-				MinSize:  Size{0, 30},
+				MinSize:  declarative.Size{0, 30},
 				AssignTo: &runStopBtn,
 				OnClicked: func() {
 					if err := db.Submit(); err != nil {

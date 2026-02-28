@@ -6,8 +6,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/henrylee2cn/pholcus/config"
-	"github.com/henrylee2cn/pholcus/logs/logs"
+	"github.com/andeya/pholcus/config"
+	"github.com/andeya/pholcus/logs/logs"
 )
 
 type (

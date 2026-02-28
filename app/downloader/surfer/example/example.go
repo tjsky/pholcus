@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/henrylee2cn/pholcus/app/downloader/surfer"
-	"io/ioutil"
+	"io"
 	"log"
 	"time"
+
+	"github.com/andeya/pholcus/app/downloader/surfer"
 )
 
 func main() {
@@ -20,7 +21,7 @@ func main() {
 	}
 	log.Printf("baidu resp.Status: %s\nresp.Header: %#v\n", resp.Status, resp.Header)
 
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	log.Printf("baidu resp.Body: %s\nerr: %v", b, err)
 
@@ -36,7 +37,7 @@ func main() {
 	}
 	log.Printf("lewaos resp.Status: %s\nresp.Header: %#v\n", resp.Status, resp.Header)
 
-	b, err = ioutil.ReadAll(resp.Body)
+	b, err = io.ReadAll(resp.Body)
 	resp.Body.Close()
 	log.Printf("lewaos resp.Body: %s\nerr: %v", b, err)
 
@@ -53,7 +54,7 @@ func main() {
 
 	log.Printf("baidu resp.Status: %s\nresp.Header: %#v\n", resp.Status, resp.Header)
 
-	b, err = ioutil.ReadAll(resp.Body)
+	b, err = io.ReadAll(resp.Body)
 	resp.Body.Close()
 	log.Printf("baidu resp.Body: %s\nerr: %v", b, err)
 
@@ -71,7 +72,7 @@ func main() {
 	}
 	log.Printf("lewaos resp.Status: %s\nresp.Header: %#v\n", resp.Status, resp.Header)
 
-	b, err = ioutil.ReadAll(resp.Body)
+	b, err = io.ReadAll(resp.Body)
 	resp.Body.Close()
 	log.Printf("lewaos resp.Body: %s\nerr: %v", b, err)
 

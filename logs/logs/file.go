@@ -96,6 +96,7 @@ func NewFileWriter() LoggerInterface {
 
 // Init file logger with json config.
 // config like:
+//
 //	{
 //	"filename":"logs/beego.log",
 //	"maxlines":10000,

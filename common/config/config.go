@@ -15,31 +15,33 @@
 // Package config is used to parse config
 // Usage:
 // import(
-//   "github.com/astaxie/beego/config"
+//
+//	"github.com/astaxie/beego/config"
+//
 // )
 //
-//  cnf, err := config.NewConfig("ini", "config.conf")
+//	cnf, err := config.NewConfig("ini", "config.conf")
 //
-//  cnf APIS:
+//	cnf APIS:
 //
-//  cnf.Set(key, val string) error
-//  cnf.String(key string) string
-//  cnf.Strings(key string) []string
-//  cnf.Int(key string) (int, error)
-//  cnf.Int64(key string) (int64, error)
-//  cnf.Bool(key string) (bool, error)
-//  cnf.Float(key string) (float64, error)
-//  cnf.DefaultString(key string, defaultVal string) string
-//  cnf.DefaultStrings(key string, defaultVal []string) []string
-//  cnf.DefaultInt(key string, defaultVal int) int
-//  cnf.DefaultInt64(key string, defaultVal int64) int64
-//  cnf.DefaultBool(key string, defaultVal bool) bool
-//  cnf.DefaultFloat(key string, defaultVal float64) float64
-//  cnf.DIY(key string) (interface{}, error)
-//  cnf.GetSection(section string) (map[string]string, error)
-//  cnf.SaveConfigFile(filename string) error
+//	cnf.Set(key, val string) error
+//	cnf.String(key string) string
+//	cnf.Strings(key string) []string
+//	cnf.Int(key string) (int, error)
+//	cnf.Int64(key string) (int64, error)
+//	cnf.Bool(key string) (bool, error)
+//	cnf.Float(key string) (float64, error)
+//	cnf.DefaultString(key string, defaultVal string) string
+//	cnf.DefaultStrings(key string, defaultVal []string) []string
+//	cnf.DefaultInt(key string, defaultVal int) int
+//	cnf.DefaultInt64(key string, defaultVal int64) int64
+//	cnf.DefaultBool(key string, defaultVal bool) bool
+//	cnf.DefaultFloat(key string, defaultVal float64) float64
+//	cnf.DIY(key string) (interface{}, error)
+//	cnf.GetSection(section string) (map[string]string, error)
+//	cnf.SaveConfigFile(filename string) error
 //
-//  more docs http://beego.me/docs/module/config.md
+//	more docs http://beego.me/docs/module/config.md
 package config
 
 import (

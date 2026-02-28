@@ -3,7 +3,7 @@ package spider
 import (
 	"fmt"
 
-	"github.com/henrylee2cn/pholcus/common/pinyin"
+	"github.com/andeya/pholcus/common/pinyin"
 )
 
 // 蜘蛛种类列表

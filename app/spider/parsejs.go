@@ -2,16 +2,20 @@ package spider
 
 import (
 	"encoding/xml"
-	"io/ioutil"
 	"log"
+	"os"
 	"path"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/robertkrimen/otto"
 
-	"github.com/henrylee2cn/pholcus/config"
-	"github.com/henrylee2cn/pholcus/logs"
+	"github.com/andeya/pholcus/config"
+	"github.com/andeya/pholcus/logs"
 )
+
+var scriptTagRe = regexp.MustCompile(`(?s)(<Script[^>]*>)(.*?)(</Script>)`)
 
 // 蜘蛛规则解释器模型
 type (
@@ -120,6 +124,26 @@ func init() {
 	}
 }
 
+// wrapScriptCDATA 自动为 <Script> 标签中未被 CDATA 包裹的内容添加 CDATA，
+// 使用户可以在脚本中直接书写 < > & 等字符而无需手动转义。
+func wrapScriptCDATA(data []byte) []byte {
+	return scriptTagRe.ReplaceAllFunc(data, func(match []byte) []byte {
+		parts := scriptTagRe.FindSubmatch(match)
+		open, body, close_ := parts[1], parts[2], parts[3]
+		trimmed := strings.TrimSpace(string(body))
+		if strings.HasPrefix(trimmed, "<![CDATA[") {
+			return match
+		}
+		var buf []byte
+		buf = append(buf, open...)
+		buf = append(buf, "<![CDATA["...)
+		buf = append(buf, body...)
+		buf = append(buf, "]]>"...)
+		buf = append(buf, close_...)
+		return buf
+	})
+}
+
 func getSpiderModles() (ms []*SpiderModle) {
 	defer func() {
 		if p := recover(); p != nil {
@@ -127,16 +151,19 @@ func getSpiderModles() (ms []*SpiderModle) {
 		}
 	}()
 	files, _ := filepath.Glob(path.Join(config.SPIDER_DIR, "*"+config.SPIDER_EXT))
+	oldFiles, _ := filepath.Glob(path.Join(config.SPIDER_DIR, "*"+config.SPIDER_EXT_OLD))
+	files = append(oldFiles, files...)
 	for _, filename := range files {
-		b, err := ioutil.ReadFile(filename)
+		b, err := os.ReadFile(filename)
 		if err != nil {
-			log.Printf("[E] HTML动态规则[%s]: %v\n", filename, err)
+			log.Printf("[E] 动态规则[%s]: %v\n", filename, err)
 			continue
 		}
+		b = wrapScriptCDATA(b)
 		var m SpiderModle
 		err = xml.Unmarshal(b, &m)
 		if err != nil {
-			log.Printf("[E] HTML动态规则[%s]: %v\n", filename, err)
+			log.Printf("[E] 动态规则[%s]: %v\n", filename, err)
 			continue
 		}
 		ms = append(ms, &m)

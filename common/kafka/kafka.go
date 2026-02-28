@@ -4,9 +4,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/henrylee2cn/pholcus/common/util"
-	"github.com/henrylee2cn/pholcus/config"
-	"github.com/henrylee2cn/pholcus/logs"
+	"github.com/andeya/pholcus/common/util"
+	"github.com/andeya/pholcus/config"
+	"github.com/andeya/pholcus/logs"
 
 	"github.com/Shopify/sarama"
 )
@@ -26,7 +26,7 @@ func GetProducer() (sarama.SyncProducer, error) {
 	return producer, err
 }
 
-//刷新producer
+// 刷新producer
 func Refresh() {
 	once.Do(func() {
 		conf := sarama.NewConfig()

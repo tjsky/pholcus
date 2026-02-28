@@ -1,42 +1,44 @@
+//go:build windows
+
 package gui
 
 import (
 	"github.com/lxn/walk"
-	. "github.com/lxn/walk/declarative"
+	"github.com/lxn/walk/declarative"
 
-	"github.com/henrylee2cn/pholcus/app"
-	"github.com/henrylee2cn/pholcus/config"
-	"github.com/henrylee2cn/pholcus/logs"
-	"github.com/henrylee2cn/pholcus/runtime/status"
+	"github.com/andeya/pholcus/app"
+	"github.com/andeya/pholcus/config"
+	"github.com/andeya/pholcus/logs"
+	"github.com/andeya/pholcus/runtime/status"
 )
 
 func offlineWindow() {
 	mw.Close()
 
-	if err := (MainWindow{
+	if err := (declarative.MainWindow{
 		AssignTo: &mw,
-		DataBinder: DataBinder{
+		DataBinder: declarative.DataBinder{
 			AssignTo:       &db,
 			DataSource:     Input,
-			ErrorPresenter: ErrorPresenterRef{&ep},
+			ErrorPresenter: declarative.ErrorPresenterRef{&ep},
 		},
 		Title:   config.FULL_NAME + "                                                          【 运行模式 ->  单机 】",
-		MinSize: Size{1100, 700},
-		Layout:  VBox{MarginsZero: true},
-		Children: []Widget{
+		MinSize: declarative.Size{1100, 700},
+		Layout:  declarative.VBox{MarginsZero: true},
+		Children: []declarative.Widget{
 
-			Composite{
+			declarative.Composite{
 				AssignTo: &setting,
-				Layout:   Grid{Columns: 2},
-				Children: []Widget{
+				Layout:   declarative.Grid{Columns: 2},
+				Children: []declarative.Widget{
 					// 任务列表
-					TableView{
+					declarative.TableView{
 						ColumnSpan:            1,
-						MinSize:               Size{550, 450},
+						MinSize:               declarative.Size{550, 450},
 						AlternatingRowBGColor: walk.RGB(255, 255, 224),
 						CheckBoxes:            true,
 						ColumnsOrderable:      true,
-						Columns: []TableViewColumn{
+						Columns: []declarative.TableViewColumn{
 							{Title: "#", Width: 45},
 							{Title: "任务", Width: 110 /*, Format: "%.2f", Alignment: AlignFar*/},
 							{Title: "描述", Width: 370},
@@ -44,68 +46,68 @@ func offlineWindow() {
 						Model: spiderMenu,
 					},
 
-					VSplitter{
+					declarative.VSplitter{
 						ColumnSpan: 1,
-						MinSize:    Size{550, 450},
-						Children: []Widget{
+						MinSize:    declarative.Size{550, 450},
+						Children: []declarative.Widget{
 
-							VSplitter{
-								Children: []Widget{
-									Label{
+							declarative.VSplitter{
+								Children: []declarative.Widget{
+									declarative.Label{
 										Text: "自定义配置（多任务请分别多包一层“<>”）：",
 									},
-									LineEdit{
-										Text: Bind("Keyins"),
+									declarative.LineEdit{
+										Text: declarative.Bind("Keyins"),
 									},
 								},
 							},
 
-							VSplitter{
-								Children: []Widget{
-									Label{
+							declarative.VSplitter{
+								Children: []declarative.Widget{
+									declarative.Label{
 										Text: "*采集上限（默认限制URL数）：",
 									},
-									NumberEdit{
-										Value:    Bind("Limit"),
+									declarative.NumberEdit{
+										Value:    declarative.Bind("Limit"),
 										Suffix:   "",
 										Decimals: 0,
 									},
 								},
 							},
 
-							VSplitter{
-								Children: []Widget{
-									Label{
+							declarative.VSplitter{
+								Children: []declarative.Widget{
+									declarative.Label{
 										Text: "*并发协程：（1~99999）",
 									},
-									NumberEdit{
-										Value:    Bind("ThreadNum", Range{1, 99999}),
+									declarative.NumberEdit{
+										Value:    declarative.Bind("ThreadNum", declarative.Range{1, 99999}),
 										Suffix:   "",
 										Decimals: 0,
 									},
 								},
 							},
 
-							VSplitter{
-								Children: []Widget{
-									Label{
+							declarative.VSplitter{
+								Children: []declarative.Widget{
+									declarative.Label{
 										Text: "*分批输出大小：（1~5,000,000 条数据）",
 									},
-									NumberEdit{
-										Value:    Bind("DockerCap", Range{1, 5000000}),
+									declarative.NumberEdit{
+										Value:    declarative.Bind("DockerCap", declarative.Range{1, 5000000}),
 										Suffix:   "",
 										Decimals: 0,
 									},
 								},
 							},
 
-							VSplitter{
-								Children: []Widget{
-									Label{
+							declarative.VSplitter{
+								Children: []declarative.Widget{
+									declarative.Label{
 										Text: "*暂停时长参考:",
 									},
-									ComboBox{
-										Value:         Bind("Pausetime", SelRequired{}),
+									declarative.ComboBox{
+										Value:         declarative.Bind("Pausetime", declarative.SelRequired{}),
 										DisplayMember: "Key",
 										BindingMember: "Int64",
 										Model:         GuiOpt.Pausetime,
@@ -113,13 +115,13 @@ func offlineWindow() {
 								},
 							},
 
-							VSplitter{
-								Children: []Widget{
-									Label{
+							declarative.VSplitter{
+								Children: []declarative.Widget{
+									declarative.Label{
 										Text: "*代理IP更换频率:",
 									},
-									ComboBox{
-										Value:         Bind("ProxyMinute", SelRequired{}),
+									declarative.ComboBox{
+										Value:         declarative.Bind("ProxyMinute", declarative.SelRequired{}),
 										DisplayMember: "Key",
 										BindingMember: "Int64",
 										Model:         GuiOpt.ProxyMinute,
@@ -127,10 +129,10 @@ func offlineWindow() {
 								},
 							},
 
-							RadioButtonGroupBox{
+							declarative.RadioButtonGroupBox{
 								ColumnSpan: 1,
 								Title:      "*输出方式",
-								Layout:     HBox{},
+								Layout:     declarative.HBox{},
 								DataMember: "OutType",
 								Buttons:    outputList,
 							},
@@ -139,56 +141,56 @@ func offlineWindow() {
 				},
 			},
 
-			Composite{
-				Layout: HBox{},
-				Children: []Widget{
-					VSplitter{
-						Children: []Widget{
+			declarative.Composite{
+				Layout: declarative.HBox{},
+				Children: []declarative.Widget{
+					declarative.VSplitter{
+						Children: []declarative.Widget{
 							// 必填项错误检查
-							LineErrorPresenter{
+							declarative.LineErrorPresenter{
 								AssignTo: &ep,
 							},
 						},
 					},
 
-					HSplitter{
-						MaxSize: Size{220, 50},
-						Children: []Widget{
-							Label{
+					declarative.HSplitter{
+						MaxSize: declarative.Size{220, 50},
+						Children: []declarative.Widget{
+							declarative.Label{
 								Text: "继承并保存成功记录",
 							},
-							CheckBox{
-								Checked: Bind("SuccessInherit"),
+							declarative.CheckBox{
+								Checked: declarative.Bind("SuccessInherit"),
 							},
 						},
 					},
 
-					HSplitter{
-						MaxSize: Size{220, 50},
-						Children: []Widget{
-							Label{
+					declarative.HSplitter{
+						MaxSize: declarative.Size{220, 50},
+						Children: []declarative.Widget{
+							declarative.Label{
 								Text: "继承并保存失败记录",
 							},
-							CheckBox{
-								Checked: Bind("FailureInherit"),
+							declarative.CheckBox{
+								Checked: declarative.Bind("FailureInherit"),
 							},
 						},
 					},
 
-					VSplitter{
-						MaxSize: Size{90, 50},
-						Children: []Widget{
-							PushButton{
+					declarative.VSplitter{
+						MaxSize: declarative.Size{90, 50},
+						Children: []declarative.Widget{
+							declarative.PushButton{
 								Text:      "暂停/恢复",
 								AssignTo:  &pauseRecoverBtn,
 								OnClicked: offlinePauseRecover,
 							},
 						},
 					},
-					VSplitter{
-						MaxSize: Size{90, 50},
-						Children: []Widget{
-							PushButton{
+					declarative.VSplitter{
+						MaxSize: declarative.Size{90, 50},
+						Children: []declarative.Widget{
+							declarative.PushButton{
 								Text:      "开始运行",
 								AssignTo:  &runStopBtn,
 								OnClicked: offlineRunStop,

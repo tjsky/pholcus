@@ -2,10 +2,11 @@ package main
 
 import (
 	"flag"
-	"github.com/henrylee2cn/pholcus/common/mahonia"
 	"io"
 	"log"
 	"os"
+
+	"github.com/andeya/pholcus/common/mahonia"
 )
 
 // An iconv workalike using mahonia.

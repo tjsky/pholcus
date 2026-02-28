@@ -16,7 +16,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"io/ioutil"
+
 	"net/http"
 	"net/url"
 	"strings"
@@ -279,7 +279,7 @@ func (handler *hybiFrameHandler) HandleFrame(frame frameReader) (r frameReader, 
 		}
 	}
 	if header := frame.HeaderReader(); header != nil {
-		io.Copy(ioutil.Discard, header)
+		io.Copy(io.Discard, header)
 	}
 	switch frame.PayloadType() {
 	case ContinuationFrame:
@@ -294,7 +294,7 @@ func (handler *hybiFrameHandler) HandleFrame(frame frameReader) (r frameReader, 
 		if err != nil && err != io.ErrUnexpectedEOF {
 			return nil, err
 		}
-		io.Copy(ioutil.Discard, frame)
+		io.Copy(io.Discard, frame)
 		n, err = handler.WritePong(pingMsg[:n])
 		if err != nil {
 			return nil, err

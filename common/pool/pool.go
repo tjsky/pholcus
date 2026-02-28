@@ -71,27 +71,29 @@ func ClassicPool(capacity, maxIdle int, factory Factory, gctime ...time.Duration
 // 调用资源池中的资源
 func (self *classic) Call(callback func(Src) error) (err error) {
 	var src Src
-wait:
-	self.RLock()
-	if self.closed {
-		self.RUnlock()
-		return closedError
-	}
-	select {
-	case src = <-self.srcs:
-		self.RUnlock()
-		if !src.Usable() {
-			self.del(src)
-			goto wait
+	for {
+		self.RLock()
+		if self.closed {
+			self.RUnlock()
+			return closedError
 		}
-	default:
-		self.RUnlock()
-		err = self.incAuto()
-		if err != nil {
-			return err
+		select {
+		case src = <-self.srcs:
+			self.RUnlock()
+			if !src.Usable() {
+				self.del(src)
+				continue
+			}
+		default:
+			self.RUnlock()
+			err = self.incAuto()
+			if err != nil {
+				return err
+			}
+			runtime.Gosched()
+			continue
 		}
-		runtime.Gosched()
-		goto wait
+		break
 	}
 	defer func() {
 		if p := recover(); p != nil {

@@ -1,17 +1,19 @@
+//go:build windows
+
 package gui
 
 import (
 	"github.com/lxn/walk"
 	"github.com/lxn/walk/declarative"
 
-	. "github.com/henrylee2cn/pholcus/gui/model"
-	"github.com/henrylee2cn/pholcus/runtime/cache"
-	"github.com/henrylee2cn/pholcus/runtime/status"
+	"github.com/andeya/pholcus/gui/model"
+	"github.com/andeya/pholcus/runtime/cache"
+	"github.com/andeya/pholcus/runtime/status"
 )
 
 // GUI输入
 type Inputor struct {
-	Spiders []*GUISpider
+	Spiders []*model.GUISpider
 	*cache.AppConf
 	Pausetime   int64
 	ProxyMinute int64
@@ -27,7 +29,7 @@ var (
 	ep              walk.ErrorPresenter
 	mode            *walk.GroupBox
 	host            *walk.Splitter
-	spiderMenu      *SpiderMenu
+	spiderMenu      *model.SpiderMenu
 )
 
 var Input = &Inputor{

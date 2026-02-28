@@ -70,10 +70,10 @@ func OpenReaderAt(r io.ReaderAt, size int64) (file *File, err error) {
 //
 // For example:
 //
-//    var mySlice [][][]string
-//    var value string
-//    mySlice = xlsx.FileToSlice("myXLSX.xlsx")
-//    value = mySlice[0][0][0]
+//	var mySlice [][][]string
+//	var value string
+//	mySlice = xlsx.FileToSlice("myXLSX.xlsx")
+//	value = mySlice[0][0][0]
 //
 // Here, value would be set to the raw value of the cell A1 in the
 // first sheet in the XLSX file.
@@ -292,10 +292,10 @@ func (f *File) MarshallParts() (map[string]string, error) {
 //
 // For example:
 //
-//    var mySlice [][][]string
-//    var value string
-//    mySlice = xlsx.FileToSlice("myXLSX.xlsx")
-//    value = mySlice[0][0][0]
+//	var mySlice [][][]string
+//	var value string
+//	mySlice = xlsx.FileToSlice("myXLSX.xlsx")
+//	value = mySlice[0][0][0]
 //
 // Here, value would be set to the raw value of the cell A1 in the
 // first sheet in the XLSX file.

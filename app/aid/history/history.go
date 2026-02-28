@@ -2,19 +2,19 @@ package history
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"os"
 	"sync"
 
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/henrylee2cn/pholcus/app/downloader/request"
-	"github.com/henrylee2cn/pholcus/common/mgo"
-	"github.com/henrylee2cn/pholcus/common/mysql"
-	"github.com/henrylee2cn/pholcus/common/pool"
-	"github.com/henrylee2cn/pholcus/common/util"
-	"github.com/henrylee2cn/pholcus/config"
-	"github.com/henrylee2cn/pholcus/logs"
+	"github.com/andeya/pholcus/app/downloader/request"
+	"github.com/andeya/pholcus/common/mgo"
+	"github.com/andeya/pholcus/common/mysql"
+	"github.com/andeya/pholcus/common/pool"
+	"github.com/andeya/pholcus/common/util"
+	"github.com/andeya/pholcus/config"
+	"github.com/andeya/pholcus/logs"
 )
 
 type (
@@ -141,7 +141,7 @@ func (self *History) ReadSuccess(provider string, inherit bool) {
 			return
 		}
 		defer f.Close()
-		b, _ := ioutil.ReadAll(f)
+		b, _ := io.ReadAll(f)
 		if len(b) == 0 {
 			return
 		}
@@ -230,7 +230,7 @@ func (self *History) ReadFailure(provider string, inherit bool) {
 		if err != nil {
 			return
 		}
-		b, _ := ioutil.ReadAll(f)
+		b, _ := io.ReadAll(f)
 		f.Close()
 
 		if len(b) == 0 {

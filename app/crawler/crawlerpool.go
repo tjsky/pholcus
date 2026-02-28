@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/henrylee2cn/pholcus/config"
-	"github.com/henrylee2cn/pholcus/runtime/status"
+	"github.com/andeya/pholcus/config"
+	"github.com/andeya/pholcus/runtime/status"
 )
 
 // 采集引擎池
@@ -85,7 +85,6 @@ func (self *cq) Use() Crawler {
 		self.Unlock()
 		time.Sleep(time.Second)
 	}
-	return nil
 }
 
 func (self *cq) Free(crawler Crawler) {
@@ -100,7 +99,6 @@ func (self *cq) Free(crawler Crawler) {
 // 主动终止所有爬行任务
 func (self *cq) Stop() {
 	self.Lock()
-	// println("CrawlerPool^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
 	if self.status == status.STOP {
 		self.Unlock()
 		return
@@ -113,5 +111,4 @@ func (self *cq) Stop() {
 	for _, crawler := range self.all {
 		crawler.Stop()
 	}
-	// println("CrawlerPool$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
 }
