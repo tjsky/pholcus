@@ -3,7 +3,7 @@ module github.com/andeya/pholcus/rules
 go 1.24.0
 
 require (
-	github.com/andeya/pholcus v0.0.0
+	github.com/andeya/pholcus v0.0.0-20260228091704-08ff6c2a7a9b
 	github.com/tidwall/gjson v1.3.2
 )
 

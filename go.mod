@@ -6,7 +6,7 @@ require (
 	github.com/PuerkitoBio/goquery v1.5.0
 	github.com/Shopify/sarama v1.23.1
 	github.com/andeya/gust v1.20.7
-	github.com/andeya/pholcus/rules v0.0.0
+	github.com/andeya/pholcus/rules v0.0.0-20260228091704-08ff6c2a7a9b
 	github.com/andybalholm/cascadia v1.0.0
 	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/go-sql-driver/mysql v1.4.1
