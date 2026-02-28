@@ -30,10 +30,10 @@ _testmain.go
 .cursor
 .DS_Store
 
-simple/simple
-simple/pholcus_pkg/cache
-simple/pholcus_pkg/file_out
-simple/pholcus_pkg/history
-simple/pholcus_pkg/logs
-simple/pholcus_pkg/text_out
+sample/sample
+sample/pholcus_pkg/cache
+sample/pholcus_pkg/file_out
+sample/pholcus_pkg/history
+sample/pholcus_pkg/logs
+sample/pholcus_pkg/text_out
 

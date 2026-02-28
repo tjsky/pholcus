@@ -57,7 +57,7 @@ cd pholcus
 
 ### 创建项目
 
-参考 `simple/pholcus_web.go`：
+参考 `sample/pholcus_web.go`：
 
 ```go
 package main
@@ -80,7 +80,7 @@ func main() {
 
 ```bash
 # 编译（非 Windows 平台会自动排除 GUI 包）
-go build -o pholcus ./simple/
+go build -o pholcus ./sample/
 
 # 查看可选参数
 ./pholcus -h
@@ -89,7 +89,7 @@ go build -o pholcus ./simple/
 Windows 下隐藏 cmd 窗口的编译方法：
 
 ```bash
-go build -ldflags="-H=windowsgui -linkmode=internal" -o pholcus.exe ./simple/
+go build -ldflags="-H=windowsgui -linkmode=internal" -o pholcus.exe ./sample/
 ```
 
 ![命令行帮助](https://github.com/andeya/pholcus/raw/master/doc/help.jpg)
