@@ -6,7 +6,6 @@ require (
 	github.com/PuerkitoBio/goquery v1.5.0
 	github.com/Shopify/sarama v1.23.1
 	github.com/andeya/gust v1.20.7
-	github.com/andeya/pholcus/rules v0.0.0-20260228091704-08ff6c2a7a9b
 	github.com/andybalholm/cascadia v1.0.0
 	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/go-sql-driver/mysql v1.4.1
@@ -15,6 +14,7 @@ require (
 	github.com/lxn/win v0.0.0-20190716185335-d1d36f0e4f48
 	github.com/pkg/errors v0.9.1
 	github.com/robertkrimen/otto v0.0.0-20180617131154-15f95af6e78d
+	github.com/tidwall/gjson v1.3.2
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce
 )
@@ -30,7 +30,6 @@ require (
 	github.com/jcmturner/gofork v0.0.0-20190328161633-dc7c13fece03 // indirect
 	github.com/pierrec/lz4 v0.0.0-20190327172049-315a67e90e41 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
-	github.com/tidwall/gjson v1.3.2 // indirect
 	github.com/tidwall/match v1.0.1 // indirect
 	github.com/tidwall/pretty v1.0.0 // indirect
 	golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5 // indirect
@@ -46,5 +45,3 @@ require (
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-replace github.com/andeya/pholcus/rules => ./rules

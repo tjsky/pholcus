@@ -64,7 +64,7 @@ package main
 
 import (
     "github.com/andeya/pholcus/exec"
-    _ "github.com/andeya/pholcus/rules" // 公开维护的 spider 规则库
+    _ "github.com/andeya/pholcus/sample/static_rules" // 公开维护的 spider 规则库
     // _ "yourproject/rules_pte"         // 也可以自由添加自己的规则库
 )
 
@@ -94,15 +94,15 @@ go build -ldflags="-H=windowsgui -linkmode=internal" -o pholcus.exe ./sample/
 
 ![命令行帮助](https://github.com/andeya/pholcus/raw/master/doc/help.jpg)
 
-> *Web 版操作界面*
+> _Web 版操作界面_
 
 ![Web 界面](https://github.com/andeya/pholcus/raw/master/doc/webshow_1.png)
 
-> *GUI 版操作界面（仅 Windows）*
+> _GUI 版操作界面（仅 Windows）_
 
 ![GUI 界面](https://github.com/andeya/pholcus/raw/master/doc/guishow_0.jpg)
 
-> *Cmd 版运行参数设置示例*
+> _Cmd 版运行参数设置示例_
 
 ```bash
 pholcus -_ui=cmd -a_mode=0 -c_spider=3,8 -a_outtype=csv -a_thread=20 \
@@ -116,11 +116,11 @@ pholcus -_ui=cmd -a_mode=0 -c_spider=3,8 -a_outtype=csv -a_thread=20 \
 
 ```
 ├── pholcus                    可执行文件
+├── dyn_rules/                 动态规则目录（由 config.ini 中 spiderdir 配置）
+│   └── xxx.pholcus.xml        动态规则文件（同时兼容 .pholcus.html）
 └── pholcus_pkg/               运行时文件目录
     ├── config.ini             配置文件
     ├── proxy.lib              代理 IP 列表文件
-    ├── spiders/               动态规则目录
-    │   └── xxx.pholcus.xml    动态规则文件
     ├── phantomjs              PhantomJS 程序文件
     ├── text_out/              文本数据文件输出目录
     ├── file_out/              文件结果输出目录
@@ -133,12 +133,14 @@ pholcus -_ui=cmd -a_mode=0 -c_spider=3,8 -a_outtype=csv -a_thread=20 \
 
 特点：动态加载规则，无需重新编译软件，书写简单，添加自由，适用于轻量级的采集项目。
 
-将以下内容保存为 `pholcus_pkg/spiders/example.pholcus.xml`：
+> 支持 `.pholcus.xml`（推荐）和 `.pholcus.html`（兼容旧版）两种扩展名。`<Script>` 标签内的 JS 代码会自动包裹 CDATA，无需手动转义 `<`、`>`、`&` 等特殊字符。
+
+将以下内容保存为 `dyn_rules/example.pholcus.xml`（参考 `sample/dyn_rules/baidu_search.pholcus.xml`）：
 
 ```xml
 <Spider>
-    <Name>HTML动态规则示例</Name>
-    <Description>HTML动态规则示例 [Auto Page] [http://xxx.xxx.xxx]</Description>
+    <Name>动态规则示例</Name>
+    <Description>动态规则示例 [Auto Page] [http://xxx.xxx.xxx]</Description>
     <Pausetime>300</Pausetime>
     <EnableLimit>false</EnableLimit>
     <EnableCookie>true</EnableCookie>
@@ -152,7 +154,6 @@ pholcus -_ui=cmd -a_mode=0 -c_spider=3,8 -a_outtype=csv -a_thread=20 \
     </SubNamespace>
     <Root>
         <Script param="ctx">
-        console.log("Root");
         ctx.JsAddQueue({
             Url: "http://xxx.xxx.xxx",
             Rule: "登录页"
@@ -160,18 +161,13 @@ pholcus -_ui=cmd -a_mode=0 -c_spider=3,8 -a_outtype=csv -a_thread=20 \
         </Script>
     </Root>
     <Rule name="登录页">
-        <AidFunc>
-            <Script param="ctx,aid">
-            </Script>
-        </AidFunc>
         <ParseFunc>
             <Script param="ctx">
-            console.log(ctx.GetRuleName());
             ctx.JsAddQueue({
                 Url: "http://xxx.xxx.xxx",
                 Rule: "登录后",
                 Method: "POST",
-                PostData: "username=user@example.com&amp;password=pass&amp;submit=login"
+                PostData: "username=user@example.com&password=pass&submit=login"
             });
             </Script>
         </ParseFunc>
@@ -179,7 +175,6 @@ pholcus -_ui=cmd -a_mode=0 -c_spider=3,8 -a_outtype=csv -a_thread=20 \
     <Rule name="登录后">
         <ParseFunc>
             <Script param="ctx">
-            console.log(ctx.GetRuleName());
             ctx.Output({
                 "全部": ctx.GetText()
             });
@@ -196,7 +191,6 @@ pholcus -_ui=cmd -a_mode=0 -c_spider=3,8 -a_outtype=csv -a_thread=20 \
     <Rule name="个人中心">
         <ParseFunc>
             <Script param="ctx">
-            console.log("个人中心: " + ctx.GetRuleName());
             ctx.Output({
                 "全部": ctx.GetText()
             });
@@ -210,7 +204,7 @@ pholcus -_ui=cmd -a_mode=0 -c_spider=3,8 -a_outtype=csv -a_thread=20 \
 
 特点：随软件一同编译，定制性更强，效率更高，适用于重量级的采集项目。
 
-在 `rules/` 目录下新建 Go 文件（参考 `rules/chinanews/chinanews.go`）：
+在 `sample/static_rules/` 目录下新建 Go 文件（参考 `sample/static_rules/chinanews/chinanews.go`）：
 
 ```go
 package rules

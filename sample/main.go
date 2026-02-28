@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/andeya/pholcus/exec"
-	_ "github.com/andeya/pholcus/rules" // 此为公开维护的spider规则库
-	// _ "github.com/andeya/pholcus/rules_pte" // 同样你也可以自由添加自己的规则库
+	_ "github.com/andeya/pholcus/sample/static_rules"
+	// _ "github.com/andeya/pholcus/sample/static_rules_pte" // 同样你也可以自由添加自己的规则库
 )
 
 func main() {
