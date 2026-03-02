@@ -8,7 +8,10 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+
+	"github.com/andeya/pholcus/common/closer"
 )
 
 func newServerConn(rwc io.ReadWriteCloser, buf *bufio.ReadWriter, req *http.Request, config *Config, handshake func(*Config, *http.Request) error) (conn *Conn, err error) {
@@ -78,7 +81,7 @@ func (s Server) serveWebSocket(w http.ResponseWriter, req *http.Request) {
 	// The server should abort the WebSocket connection if it finds
 	// the client did not send a handshake that matches with protocol
 	// specification.
-	defer rwc.Close()
+	defer closer.LogClose(rwc, log.Printf)
 	conn, err := newServerConn(rwc, buf, req, &s.Config, s.Handshake)
 	if err != nil {
 		return

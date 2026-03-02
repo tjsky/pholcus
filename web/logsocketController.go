@@ -2,6 +2,7 @@ package web
 
 import (
 	"regexp"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 
@@ -9,14 +10,13 @@ import (
 	"github.com/andeya/pholcus/logs"
 )
 
-// send log api
+// wsLogHandle handles WebSocket connections for streaming logs to the client.
 func wsLogHandle(conn *ws.Conn) {
 	defer func() {
 		if p := recover(); p != nil {
-			logs.Log.Error("%v", p)
+			logs.Log.Error("panic recovered: %v\n%s", p, debug.Stack())
 		}
 	}()
-	// var err error
 	sess, _ := globalSessions.SessionStart(nil, conn.Request())
 	sessID := sess.SessionID()
 	connPool := Lsc.connPool.Load().(map[string]*ws.Conn)
@@ -33,13 +33,14 @@ func wsLogHandle(conn *ws.Conn) {
 	}
 }
 
+// LogSocketController manages WebSocket connections for log streaming.
 type LogSocketController struct {
 	connPool atomic.Value
 	lock     sync.Mutex
 }
 
 var (
-	// Lsc log set
+	// Lsc is the global LogSocketController for log streaming.
 	Lsc = func() *LogSocketController {
 		l := new(LogSocketController)
 		l.connPool.Store(make(map[string]*ws.Conn))
@@ -50,7 +51,9 @@ var (
 
 func (self *LogSocketController) Write(p []byte) (int, error) {
 	defer func() {
-		recover()
+		if r := recover(); r != nil {
+			logs.Log.Error("panic recovered: %v\n%s", r, debug.Stack())
+		}
 	}()
 	p = colorRegexp.ReplaceAll(p, []byte{})
 	connPool := self.connPool.Load().(map[string]*ws.Conn)
@@ -80,7 +83,9 @@ func (self *LogSocketController) Remove(sessID string) {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 	defer func() {
-		recover()
+		if p := recover(); p != nil {
+			logs.Log.Error("panic recovered: %v\n%s", p, debug.Stack())
+		}
 	}()
 	connPool := self.connPool.Load().(map[string]*ws.Conn)
 	conn := connPool[sessID]

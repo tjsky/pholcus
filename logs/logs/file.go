@@ -23,9 +23,17 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/andeya/pholcus/common/closer"
+)
+
+const (
+	defaultBufSize     = 32768 // 32k buffer for reading log file
+	maxRotateFileIndex = 999   // max rotated log file number per day
 )
 
 // FileLogWriter implements LoggerInterface.
@@ -189,9 +197,9 @@ func (w *FileLogWriter) lines() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer fd.Close()
+	defer closer.LogClose(fd, log.Printf)
 
-	buf := make([]byte, 32768) // 32k
+	buf := make([]byte, defaultBufSize)
 	count := 0
 	lineSep := []byte{'\n'}
 
@@ -219,7 +227,7 @@ func (w *FileLogWriter) DoRotate() error {
 		// Find the next available number
 		num := 1
 		fname := ""
-		for ; err == nil && num <= 999; num++ {
+		for ; err == nil && num <= maxRotateFileIndex; num++ {
 			fname = w.Filename + fmt.Sprintf(".%s.%03d", time.Now().Format("2006-01-02"), num)
 			_, err = os.Lstat(fname)
 		}
@@ -260,7 +268,7 @@ func (w *FileLogWriter) deleteOldLog() {
 		defer func() {
 			if r := recover(); r != nil {
 				returnErr = fmt.Errorf("Unable to delete old log '%s', error: %+v", path, r)
-				fmt.Println(returnErr)
+				fmt.Fprintf(os.Stderr, "panic recovered: %v\n%s", r, debug.Stack())
 			}
 		}()
 

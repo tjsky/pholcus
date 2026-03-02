@@ -8,11 +8,11 @@ import (
 	"github.com/andeya/pholcus/common/pool"
 )
 
-// 删除数据
+// Remove deletes documents matching the selector.
 type Remove struct {
-	Database   string                 // 数据库
-	Collection string                 // 集合
-	Selector   map[string]interface{} // 文档选择器
+	Database   string                 // database name
+	Collection string                 // collection name
+	Selector   map[string]interface{} // document selector
 }
 
 func (self *Remove) Exec(_ interface{}) error {
@@ -21,7 +21,7 @@ func (self *Remove) Exec(_ interface{}) error {
 
 		if id, ok := self.Selector["_id"]; ok {
 			if idStr, ok2 := id.(string); !ok2 {
-				return fmt.Errorf("%v", "参数 _id 必须为 string 类型！")
+				return fmt.Errorf("%v", "parameter _id must be of string type")
 			} else {
 				self.Selector["_id"] = bson.ObjectIdHex(idStr)
 			}

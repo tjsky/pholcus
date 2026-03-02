@@ -22,32 +22,36 @@ type KafkaSender struct {
 	topic string
 }
 
+// GetProducer returns the Kafka sync producer and any initialization error.
 func GetProducer() (sarama.SyncProducer, error) {
 	return producer, err
 }
 
-// 刷新producer
+// Refresh initializes or reconnects the Kafka producer.
 func Refresh() {
 	once.Do(func() {
 		conf := sarama.NewConfig()
-		conf.Producer.RequiredAcks = sarama.WaitForAll //等待所有备份返回ack
-		conf.Producer.Retry.Max = 10                   // 重试次数
+		conf.Producer.RequiredAcks = sarama.WaitForAll
+		conf.Producer.Retry.Max = 10
 		brokerList := config.KAFKA_BORKERS
 		producer, err = sarama.NewSyncProducer(strings.Split(brokerList, ","), conf)
 		if err != nil {
-			logs.Log.Error("Kafka:%v\n", err)
+			logs.Log.Error("Kafka: %v\n", err)
 		}
 	})
 }
 
+// New creates a new KafkaSender.
 func New() *KafkaSender {
 	return &KafkaSender{}
 }
 
+// SetTopic sets the Kafka topic for sending messages.
 func (p *KafkaSender) SetTopic(topic string) {
 	p.topic = topic
 }
 
+// Push sends data as a JSON message to the configured topic.
 func (p *KafkaSender) Push(data map[string]interface{}) error {
 	val := util.JsonString(data)
 	_, _, err := producer.SendMessage(&sarama.ProducerMessage{

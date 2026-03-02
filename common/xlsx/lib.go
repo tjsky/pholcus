@@ -9,6 +9,9 @@ import (
 	"path"
 	"strconv"
 	"strings"
+
+	"github.com/andeya/pholcus/common/closer"
+	"github.com/andeya/pholcus/logs"
 )
 
 // XLSXReaderError is the standard error type for otherwise undefined
@@ -811,7 +814,7 @@ func readWorkbookRelationsFromZipFile(workbookRels *zip.File) (WorkBookRels, err
 // xlsx.File struct populated with its contents.  In most cases
 // ReadZip is not used directly, but is called internally by OpenFile.
 func ReadZip(f *zip.ReadCloser) (*File, error) {
-	defer f.Close()
+	defer closer.LogClose(f, logs.Log.Error)
 	return ReadZipReader(&f.Reader)
 }
 

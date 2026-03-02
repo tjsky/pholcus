@@ -203,7 +203,7 @@ var Database = UATable{
 	},
 }
 
-// 全部UserAgent
+// UserAgents holds all generated user agent strings.
 var UserAgents = map[string][]string{}
 
 func init() {

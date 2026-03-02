@@ -1,4 +1,4 @@
-// 通用资源池，动态增加资源实例，并支持空闲资源定时回收功能。
+// Package pool provides a generic resource pool with dynamic growth and idle resource recycling.
 package pool
 
 import (
@@ -10,36 +10,30 @@ import (
 )
 
 type (
-	// 资源池（应设置最大容量）
+	// Pool is a resource pool with a maximum capacity.
 	Pool interface {
-		// 调用资源池中的资源
 		Call(func(Src) error) error
-		// 销毁资源池
 		Close()
-		// 返回当前资源数量
 		Len() int
 	}
-	// 经典资源池
+	// classic implements a classic resource pool.
 	classic struct {
-		srcs     chan Src      // 资源列表(Src须为指针类型)
-		capacity int           // 资源池容量
-		maxIdle  int           // 资源最大空闲数
-		len      int           // 当前资源数
-		factory  Factory       // 创建资源的方法
-		gctime   time.Duration // 空闲资源回收时间
-		closed   bool          // 标记是否已关闭资源池
+		srcs     chan Src      // resources (Src must be a pointer type)
+		capacity int           // pool capacity
+		maxIdle  int           // max idle resources
+		len      int           // current resource count
+		factory  Factory       // resource factory
+		gctime   time.Duration // idle resource recycling interval
+		closed   bool          // whether the pool is closed
 		sync.RWMutex
 	}
-	// 资源接口
+	// Src is the resource interface.
 	Src interface {
-		// 判断资源是否可用
 		Usable() bool
-		// 使用后的重置方法
 		Reset()
-		// 被资源池删除前的自毁方法
 		Close()
 	}
-	// 创建资源的方法
+	// Factory creates a new resource.
 	Factory func() (Src, error)
 )
 
@@ -51,7 +45,7 @@ var (
 	closedError = errors.New("资源池已关闭")
 )
 
-// 构建经典资源池
+// ClassicPool creates a classic resource pool with the given capacity and idle recycling.
 func ClassicPool(capacity, maxIdle int, factory Factory, gctime ...time.Duration) Pool {
 	if len(gctime) == 0 {
 		gctime = append(gctime, GC_TIME)
@@ -68,7 +62,7 @@ func ClassicPool(capacity, maxIdle int, factory Factory, gctime ...time.Duration
 	return pool
 }
 
-// 调用资源池中的资源
+// Call invokes the callback with a resource from the pool.
 func (self *classic) Call(callback func(Src) error) (err error) {
 	var src Src
 	for {
@@ -105,7 +99,7 @@ func (self *classic) Call(callback func(Src) error) (err error) {
 	return err
 }
 
-// 销毁资源池
+// Close destroys the pool and releases all resources.
 func (self *classic) Close() {
 	self.Lock()
 	defer self.Unlock()
@@ -120,14 +114,14 @@ func (self *classic) Close() {
 	self.len = 0
 }
 
-// 返回当前资源数量
+// Len returns the current number of resources in the pool.
 func (self *classic) Len() int {
 	self.RLock()
 	defer self.RUnlock()
 	return self.len
 }
 
-// 空闲资源回收协程
+// gc runs the idle resource recycling goroutine.
 func (self *classic) gc() {
 	for !self.isClosed() {
 		self.Lock()

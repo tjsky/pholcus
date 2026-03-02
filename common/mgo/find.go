@@ -8,15 +8,15 @@ import (
 	"github.com/andeya/pholcus/common/pool"
 )
 
-// 在指定集合进行条件查询
+// Find performs a conditional query on the specified collection.
 type Find struct {
-	Database   string                 // 数据库
-	Collection string                 // 集合
-	Query      map[string]interface{} // 查询语句
-	Sort       []string               // 排序，用法如Sort("firstname", "-lastname")，优先按firstname正序排列，其次按lastname倒序排列
-	Skip       int                    // 跳过前n个文档
-	Limit      int                    // 返回最多n个文档
-	Select     interface{}            // 只查询、返回指定字段，如{"name":1}
+	Database   string                 // database name
+	Collection string                 // collection name
+	Query      map[string]interface{} // query filter
+	Sort       []string               // sort fields, e.g. Sort("firstname", "-lastname") for asc firstname, desc lastname
+	Skip       int                    // skip first n documents
+	Limit      int                    // return at most n documents
+	Select     interface{}            // projection, e.g. {"name":1} to return only name
 	// Result     struct {
 	// 	Docs  []interface{}
 	// 	Total int
@@ -37,7 +37,7 @@ func (self *Find) Exec(resultPtr interface{}) (err error) {
 
 		if id, ok := self.Query["_id"]; ok {
 			if idStr, ok2 := id.(string); !ok2 {
-				return fmt.Errorf("%v", "参数 _id 必须为 string 类型！")
+				return fmt.Errorf("%v", "parameter _id must be of string type")
 			} else {
 				self.Query["_id"] = bson.ObjectIdHex(idStr)
 			}
@@ -45,7 +45,11 @@ func (self *Find) Exec(resultPtr interface{}) (err error) {
 
 		q := c.Find(self.Query)
 
-		(*resultPtr2)["Total"], _ = q.Count()
+		total, err := q.Count()
+		if err != nil {
+			return err
+		}
+		(*resultPtr2)["Total"] = total
 
 		if len(self.Sort) > 0 {
 			q.Sort(self.Sort...)

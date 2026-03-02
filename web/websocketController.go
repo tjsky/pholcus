@@ -12,6 +12,7 @@ import (
 	"github.com/andeya/pholcus/runtime/status"
 )
 
+// SocketController manages WebSocket connections and message channels.
 type SocketController struct {
 	connPool     map[string]*ws.Conn
 	wchanPool    map[string]*Wchan
@@ -61,7 +62,7 @@ func (self *SocketController) Write(sessID string, void map[string]interface{}, 
 	self.wchanRWMutex.RLock()
 	defer self.wchanRWMutex.RUnlock()
 
-	// to为1时，只向当前连接发送；to为-1时，向除当前连接外的其他所有连接发送；to为0时或为空时，向所有连接发送
+	// When to is 1: send only to current connection; -1: send to all except current; 0 or empty: send to all.
 	var t int = 0
 	if len(to) > 0 {
 		t = to[0]
@@ -98,6 +99,7 @@ func (self *SocketController) Write(sessID string, void map[string]interface{}, 
 	}
 }
 
+// Wchan is a channel for WebSocket message delivery.
 type Wchan struct {
 	wchan chan interface{}
 }
@@ -110,7 +112,8 @@ func newWchan() *Wchan {
 
 var (
 	wsApi = map[string]func(string, map[string]interface{}){}
-	Sc    = &SocketController{
+	// Sc is the global SocketController for WebSocket API connections.
+	Sc = &SocketController{
 		connPool:  make(map[string]*ws.Conn),
 		wchanPool: make(map[string]*Wchan),
 	}
@@ -143,40 +146,33 @@ func wsHandle(conn *ws.Conn) {
 		var req map[string]interface{}
 
 		if err := ws.JSON.Receive(conn, &req); err != nil {
-			// logs.Log.Debug("websocket接收出错断开 (%v) !", err)
 			return
 		}
 
-		// log.Log.Debug("Received from web: %v", req)
 		wsApi[util.Atoa(req["operate"])](sessID, req)
 	}
 }
 
 func init() {
-
-	// 初始化运行
 	wsApi["refresh"] = func(sessID string, req map[string]interface{}) {
-		// 写入发送通道
 		Sc.Write(sessID, tplData(app.LogicApp.GetAppConf("mode").(int)), 1)
 	}
 
-	// 初始化运行
 	wsApi["init"] = func(sessID string, req map[string]interface{}) {
 		var mode = util.Atoi(req["mode"])
 		var port = util.Atoi(req["port"])
-		var master = util.Atoa(req["ip"]) //服务器(主节点)地址，不含端口
+		var master = util.Atoa(req["ip"]) // master address without port
 		currMode := app.LogicApp.GetAppConf("mode").(int)
 		if currMode == status.UNSET {
-			app.LogicApp.Init(mode, port, master, Lsc) // 运行模式初始化，设置log输出目标
+			app.LogicApp.Init(mode, port, master, Lsc)
 		} else {
-			app.LogicApp = app.LogicApp.ReInit(mode, port, master) // 切换运行模式
+			app.LogicApp = app.LogicApp.ReInit(mode, port, master)
 		}
 
 		if mode == status.CLIENT {
 			go app.LogicApp.Run()
 		}
 
-		// 写入发送通道
 		Sc.Write(sessID, tplData(mode))
 	}
 
@@ -197,21 +193,18 @@ func init() {
 		}()
 	}
 
-	// 终止当前任务，现仅支持单机模式
+	// Stop current task; only supported in standalone mode.
 	wsApi["stop"] = func(sessID string, req map[string]interface{}) {
 		if app.LogicApp.GetAppConf("mode").(int) != status.OFFLINE {
 			Sc.Write(sessID, map[string]interface{}{"operate": "stop"})
 			return
 		} else {
-			// println("stopping^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
 			app.LogicApp.Stop()
-			// println("stopping++++++++++++++++++++++++++++++++++++++++")
 			Sc.Write(sessID, map[string]interface{}{"operate": "stop"})
-			// println("stopping$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
 		}
 	}
 
-	// 任务暂停与恢复，目前仅支持单机模式
+	// Pause and resume task; only supported in standalone mode.
 	wsApi["pauseRecover"] = func(sessID string, req map[string]interface{}) {
 		if app.LogicApp.GetAppConf("mode").(int) != status.OFFLINE {
 			return
@@ -220,7 +213,7 @@ func init() {
 		Sc.Write(sessID, map[string]interface{}{"operate": "pauseRecover"})
 	}
 
-	// 退出当前模式
+	// Exit current mode.
 	wsApi["exit"] = func(sessID string, req map[string]interface{}) {
 		app.LogicApp = app.LogicApp.ReInit(status.UNSET, 0, "")
 		Sc.Write(sessID, map[string]interface{}{"operate": "exit"})
@@ -230,7 +223,6 @@ func init() {
 func tplData(mode int) map[string]interface{} {
 	var info = map[string]interface{}{"operate": "init", "mode": mode}
 
-	// 运行模式标题
 	switch mode {
 	case status.OFFLINE:
 		info["title"] = config.FULL_NAME + "                                                          【 运行模式 ->  单机 】"
@@ -244,7 +236,6 @@ func tplData(mode int) map[string]interface{} {
 		return info
 	}
 
-	// 蜘蛛家族清单
 	info["spiders"] = map[string]interface{}{
 		"menu": spiderMenu,
 		"curr": func() interface{} {
@@ -261,59 +252,49 @@ func tplData(mode int) map[string]interface{} {
 		}(),
 	}
 
-	// 输出方式清单
 	info["OutType"] = map[string]interface{}{
 		"menu": app.LogicApp.GetOutputLib(),
 		"curr": app.LogicApp.GetAppConf("OutType"),
 	}
 
-	// 并发协程上限
 	info["ThreadNum"] = map[string]int{
 		"max":  999999,
 		"min":  1,
 		"curr": app.LogicApp.GetAppConf("ThreadNum").(int),
 	}
 
-	// 暂停区间/ms(随机: Pausetime/2 ~ Pausetime*2)
 	info["Pausetime"] = map[string][]int64{
 		"menu": {0, 100, 300, 500, 1000, 3000, 5000, 10000, 15000, 20000, 30000, 60000},
 		"curr": []int64{app.LogicApp.GetAppConf("Pausetime").(int64)},
 	}
 
-	// 代理IP更换的间隔分钟数
 	info["ProxyMinute"] = map[string][]int64{
 		"menu": {0, 1, 3, 5, 10, 15, 20, 30, 45, 60, 120, 180},
 		"curr": []int64{app.LogicApp.GetAppConf("ProxyMinute").(int64)},
 	}
 
-	// 分批输出的容量
 	info["DockerCap"] = map[string]int{
 		"min":  1,
 		"max":  5000000,
 		"curr": app.LogicApp.GetAppConf("DockerCap").(int),
 	}
 
-	// 采集上限
 	if app.LogicApp.GetAppConf("Limit").(int64) == spider.LIMIT {
 		info["Limit"] = 0
 	} else {
 		info["Limit"] = app.LogicApp.GetAppConf("Limit")
 	}
 
-	// 自定义配置
 	info["Keyins"] = app.LogicApp.GetAppConf("Keyins")
 
-	// 继承历史记录
 	info["SuccessInherit"] = app.LogicApp.GetAppConf("SuccessInherit")
 	info["FailureInherit"] = app.LogicApp.GetAppConf("FailureInherit")
 
-	// 运行状态
 	info["status"] = app.LogicApp.Status()
 
 	return info
 }
 
-// 配置运行参数
 func setConf(req map[string]interface{}) {
 	if tn := util.Atoi(req["ThreadNum"]); tn == 0 {
 		app.LogicApp.SetAppConf("ThreadNum", 1)

@@ -6,17 +6,12 @@ import (
 )
 
 const (
-	// 支持数据最大长度为 2 << 61
-	// DataLengthOfLenth = 8
-	// 支持数据最大长度为 2 << 30
 	DataLengthOfLenth = 4
 )
 
-// 通讯协议处理，主要处理封包和解包的过程
+// Protocol handles packet framing (pack/unpack).
 type Protocol struct {
-	// 包头
-	header string
-	// 包头长度
+	header    string
 	headerLen int
 }
 
@@ -32,12 +27,12 @@ func (self *Protocol) ReSet(header string) {
 	self.headerLen = len([]byte(header))
 }
 
-// 封包
+// Packet frames a message for transmission.
 func (self *Protocol) Packet(message []byte) []byte {
 	return append(append([]byte(self.header), IntToBytes(len(message))...), message...)
 }
 
-// 解包
+// Unpack extracts messages from the buffer.
 func (self *Protocol) Unpack(buffer []byte) (readerSlice [][]byte, bufferOver []byte) {
 	length := len(buffer)
 
@@ -67,7 +62,7 @@ func (self *Protocol) Unpack(buffer []byte) (readerSlice [][]byte, bufferOver []
 	return
 }
 
-// 整形转换成字节
+// IntToBytes converts int to bytes.
 func IntToBytes(n int) []byte {
 	x := int32(n)
 
@@ -76,7 +71,7 @@ func IntToBytes(n int) []byte {
 	return bytesBuffer.Bytes()
 }
 
-// 字节转换成整形
+// BytesToInt converts bytes to int.
 func BytesToInt(b []byte) int {
 	bytesBuffer := bytes.NewBuffer(b)
 

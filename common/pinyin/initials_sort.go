@@ -4,7 +4,7 @@ import (
 	"sort"
 )
 
-// 按首字母排序
+// SortInitials sorts the string slice by pinyin initial letters (in-place).
 func SortInitials(strs []string) {
 	a := NewArgs()
 	l := len(strs)

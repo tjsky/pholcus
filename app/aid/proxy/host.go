@@ -5,15 +5,16 @@ import (
 	"time"
 )
 
+// ProxyForHost manages proxy IPs for a host, sorted by response time.
 type ProxyForHost struct {
-	curIndex  int // 当前代理ip索引
+	curIndex  int // Index of current proxy IP
 	proxys    []string
 	timedelay []time.Duration
-	isEcho    bool // 是否打印换ip信息
+	isEcho    bool // Whether to print proxy switch info
 	sync.Mutex
 }
 
-// 实现排序接口
+// Len implements sort.Interface.
 func (self *ProxyForHost) Len() int {
 	return len(self.proxys)
 }

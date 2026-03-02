@@ -6,9 +6,9 @@ import (
 	"github.com/andeya/pholcus/common/pool"
 )
 
-// 传入数据库列表 | 返回数据库及其集合树
+// List returns a map of database names to their collection names.
 type List struct {
-	Dbs []string //数据库名称列表
+	Dbs []string // list of database names to query (empty = all)
 }
 
 func (self *List) Exec(resultPtr interface{}) (err error) {
@@ -32,13 +32,19 @@ func (self *List) Exec(resultPtr interface{}) (err error) {
 
 		if len(self.Dbs) == 0 {
 			for _, dbname := range dbs {
-				(*resultPtr2)[dbname], _ = s.DB(dbname).CollectionNames()
+				(*resultPtr2)[dbname], err = s.DB(dbname).CollectionNames()
+				if err != nil {
+					return err
+				}
 			}
 			return err
 		}
 
 		for _, dbname := range self.Dbs {
-			(*resultPtr2)[dbname], _ = s.DB(dbname).CollectionNames()
+			(*resultPtr2)[dbname], err = s.DB(dbname).CollectionNames()
+			if err != nil {
+				return err
+			}
 		}
 		return err
 	})

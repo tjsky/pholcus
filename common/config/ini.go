@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path"
 	"sort"
@@ -27,17 +28,21 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/andeya/pholcus/common/closer"
 )
 
+const utf8BOM = "\xEF\xBB\xBF"
+
 var (
-	defaultSection = "default"   // default section means if some ini items not in a section, make them in default section,
-	bNumComment    = []byte{'#'} // number signal
-	bSemComment    = []byte{';'} // semicolon signal
+	defaultSection = "default"   // section for ini items not under a named section
+	bNumComment    = []byte{'#'} // hash comment prefix
+	bSemComment    = []byte{';'} // semicolon comment prefix
 	bEmpty         = []byte{}
-	bEqual         = []byte{'='} // equal signal
-	bDQuote        = []byte{'"'} // quote signal
-	sectionStart   = []byte{'['} // section start signal
-	sectionEnd     = []byte{']'} // section end signal
+	bEqual         = []byte{'='} // key-value separator
+	bDQuote        = []byte{'"'}  // double-quote for values
+	sectionStart   = []byte{'['} // section header start
+	sectionEnd     = []byte{']'}  // section header end
 	lineBreak      = "\n"
 )
 
@@ -65,17 +70,11 @@ func (ini *IniConfig) parseFile(name string) (*IniConfigContainer, error) {
 	}
 	cfg.Lock()
 	defer cfg.Unlock()
-	defer file.Close()
+	defer closer.LogClose(file, log.Printf)
 
 	var comment bytes.Buffer
 	buf := bufio.NewReader(file)
-	// check the BOM
-	head, err := buf.Peek(3)
-	if err == nil && head[0] == 239 && head[1] == 187 && head[2] == 191 {
-		for i := 1; i <= 3; i++ {
-			buf.ReadByte()
-		}
-	}
+	skipBOM(buf)
 	section := defaultSection
 	for {
 		line, _, err := buf.ReadLine()
@@ -87,94 +86,125 @@ func (ini *IniConfig) parseFile(name string) (*IniConfigContainer, error) {
 		}
 		line = bytes.TrimSpace(line)
 
-		var bComment []byte
-		switch {
-		case bytes.HasPrefix(line, bNumComment):
-			bComment = bNumComment
-		case bytes.HasPrefix(line, bSemComment):
-			bComment = bSemComment
-		}
-		if bComment != nil {
-			line = bytes.TrimLeft(line, string(bComment))
-			// Need append to a new line if multi-line comments.
-			if comment.Len() > 0 {
-				comment.WriteByte('\n')
-			}
-			comment.Write(line)
+		if parseCommentLine(line, &comment) {
 			continue
 		}
-
-		if bytes.HasPrefix(line, sectionStart) && bytes.HasSuffix(line, sectionEnd) {
-			section = strings.ToLower(string(line[1 : len(line)-1])) // section name case insensitive
-			if comment.Len() > 0 {
-				cfg.sectionComment[section] = comment.String()
-				comment.Reset()
-			}
-			if _, ok := cfg.data[section]; !ok {
-				cfg.data[section] = make(map[string]string)
-			}
+		if newSection, ok := parseSectionHeader(line); ok {
+			section = newSection
+			applySectionComment(cfg, section, &comment)
+			ensureSection(cfg, section)
 			continue
 		}
-
-		if _, ok := cfg.data[section]; !ok {
-			cfg.data[section] = make(map[string]string)
+		ensureSection(cfg, section)
+		if err := parseKeyValueLine(line, name, ini, cfg, section, &comment); err != nil {
+			return nil, err
 		}
-		keyValue := bytes.SplitN(line, bEqual, 2)
-
-		key := string(bytes.TrimSpace(keyValue[0])) // key name case insensitive
-		key = strings.ToLower(key)
-
-		// handle include "other.conf"
-		if len(keyValue) == 1 && strings.HasPrefix(key, "include") {
-			includefiles := strings.Fields(key)
-			if includefiles[0] == "include" && len(includefiles) == 2 {
-				otherfile := strings.Trim(includefiles[1], "\"")
-				if !path.IsAbs(otherfile) {
-					otherfile = path.Join(path.Dir(name), otherfile)
-				}
-				i, err := ini.parseFile(otherfile)
-				if err != nil {
-					return nil, err
-				}
-				for sec, dt := range i.data {
-					if _, ok := cfg.data[sec]; !ok {
-						cfg.data[sec] = make(map[string]string)
-					}
-					for k, v := range dt {
-						cfg.data[sec][k] = v
-					}
-				}
-				for sec, comm := range i.sectionComment {
-					cfg.sectionComment[sec] = comm
-				}
-				for k, comm := range i.keyComment {
-					cfg.keyComment[k] = comm
-				}
-				continue
-			}
-		}
-
-		if len(keyValue) != 2 {
-			return nil, errors.New("read the content error: \"" + string(line) + "\", should key = val")
-		}
-		val := bytes.TrimSpace(keyValue[1])
-		if bytes.HasPrefix(val, bDQuote) {
-			val = bytes.Trim(val, `"`)
-		}
-
-		cfg.data[section][key] = string(val)
-		if comment.Len() > 0 {
-			cfg.keyComment[section+"."+key] = comment.String()
-			comment.Reset()
-		}
-
 	}
 	return cfg, nil
 }
 
+// skipBOM removes UTF-8 BOM from the reader if present.
+func skipBOM(buf *bufio.Reader) {
+	head, err := buf.Peek(3)
+	if err == nil && strings.HasPrefix(string(head), utf8BOM) {
+		for i := 1; i <= 3; i++ {
+			buf.ReadByte()
+		}
+	}
+}
+
+// parseCommentLine processes comment lines (# or ;). Returns true if line was a comment.
+func parseCommentLine(line []byte, comment *bytes.Buffer) bool {
+	var bComment []byte
+	switch {
+	case bytes.HasPrefix(line, bNumComment):
+		bComment = bNumComment
+	case bytes.HasPrefix(line, bSemComment):
+		bComment = bSemComment
+	}
+	if bComment == nil {
+		return false
+	}
+	line = bytes.TrimLeft(line, string(bComment))
+	if comment.Len() > 0 {
+		comment.WriteByte('\n')
+	}
+	comment.Write(line)
+	return true
+}
+
+// parseSectionHeader extracts section name from [section] lines. Returns (name, true) if valid.
+func parseSectionHeader(line []byte) (string, bool) {
+	if !bytes.HasPrefix(line, sectionStart) || !bytes.HasSuffix(line, sectionEnd) {
+		return "", false
+	}
+	return strings.ToLower(string(line[1 : len(line)-1])), true
+}
+
+func applySectionComment(cfg *IniConfigContainer, section string, comment *bytes.Buffer) {
+	if comment.Len() > 0 {
+		cfg.sectionComment[section] = comment.String()
+		comment.Reset()
+	}
+}
+
+func ensureSection(cfg *IniConfigContainer, section string) {
+	if _, ok := cfg.data[section]; !ok {
+		cfg.data[section] = make(map[string]string)
+	}
+}
+
+// parseKeyValueLine parses key=value or include directive. Merges included files into cfg.
+func parseKeyValueLine(line []byte, filename string, ini *IniConfig, cfg *IniConfigContainer, section string, comment *bytes.Buffer) error {
+	keyValue := bytes.SplitN(line, bEqual, 2)
+	key := strings.ToLower(string(bytes.TrimSpace(keyValue[0])))
+
+	if len(keyValue) == 1 && strings.HasPrefix(key, "include") {
+		includefiles := strings.Fields(key)
+		if includefiles[0] == "include" && len(includefiles) == 2 {
+			otherfile := strings.Trim(includefiles[1], "\"")
+			if !path.IsAbs(otherfile) {
+				otherfile = path.Join(path.Dir(filename), otherfile)
+			}
+			inc, err := ini.parseFile(otherfile)
+			if err != nil {
+				return err
+			}
+			for sec, dt := range inc.data {
+				if _, ok := cfg.data[sec]; !ok {
+					cfg.data[sec] = make(map[string]string)
+				}
+				for k, v := range dt {
+					cfg.data[sec][k] = v
+				}
+			}
+			for sec, comm := range inc.sectionComment {
+				cfg.sectionComment[sec] = comm
+			}
+			for k, comm := range inc.keyComment {
+				cfg.keyComment[k] = comm
+			}
+			return nil
+		}
+	}
+
+	if len(keyValue) != 2 {
+		return errors.New("read the content error: \"" + string(line) + "\", should key = val")
+	}
+	val := bytes.TrimSpace(keyValue[1])
+	if bytes.HasPrefix(val, bDQuote) {
+		val = bytes.Trim(val, `"`)
+	}
+	cfg.data[section][key] = string(val)
+	if comment.Len() > 0 {
+		cfg.keyComment[section+"."+key] = comment.String()
+		comment.Reset()
+	}
+	return nil
+}
+
 // ParseData parse ini the data
 func (ini *IniConfig) ParseData(data []byte) (Configer, error) {
-	// Save memory data to temporary file
 	tmpName := path.Join(os.TempDir(), "beego", fmt.Sprintf("%d", time.Now().Nanosecond()))
 	os.MkdirAll(path.Dir(tmpName), os.ModePerm)
 	if err := os.WriteFile(tmpName, data, 0655); err != nil {
@@ -183,13 +213,13 @@ func (ini *IniConfig) ParseData(data []byte) (Configer, error) {
 	return ini.Parse(tmpName)
 }
 
-// IniConfigContainer A Config represents the ini configuration.
-// When set and get value, support key as section:name type.
+// IniConfigContainer represents the ini configuration.
+// Keys support section::name format for get/set operations.
 type IniConfigContainer struct {
 	filename       string
-	data           map[string]map[string]string // section=> key:val
-	sectionComment map[string]string            // section : comment
-	keyComment     map[string]string            // id: []{comment, key...}; id 1 is for main comment.
+	data           map[string]map[string]string // section => key:val
+	sectionComment map[string]string            // section => comment
+	keyComment     map[string]string            // section.key => comment
 	sync.RWMutex
 }
 
@@ -234,8 +264,7 @@ func (c *IniConfigContainer) Bool(key string) (bool, error) {
 	return ParseBool(c.getdata(key))
 }
 
-// DefaultBool returns the boolean value for a given key.
-// if err != nil return defaltval
+// DefaultBool returns the boolean value for a given key, or defaultval on error.
 func (c *IniConfigContainer) DefaultBool(key string, defaultval bool) bool {
 	v, err := c.Bool(key)
 	if err != nil {
@@ -249,8 +278,7 @@ func (c *IniConfigContainer) Int(key string) (int, error) {
 	return strconv.Atoi(c.getdata(key))
 }
 
-// DefaultInt returns the integer value for a given key.
-// if err != nil return defaltval
+// DefaultInt returns the integer value for a given key, or defaultval on error.
 func (c *IniConfigContainer) DefaultInt(key string, defaultval int) int {
 	v, err := c.Int(key)
 	if err != nil {
@@ -264,8 +292,7 @@ func (c *IniConfigContainer) Int64(key string) (int64, error) {
 	return strconv.ParseInt(c.getdata(key), 10, 64)
 }
 
-// DefaultInt64 returns the int64 value for a given key.
-// if err != nil return defaltval
+// DefaultInt64 returns the int64 value for a given key, or defaultval on error.
 func (c *IniConfigContainer) DefaultInt64(key string, defaultval int64) int64 {
 	v, err := c.Int64(key)
 	if err != nil {
@@ -279,8 +306,7 @@ func (c *IniConfigContainer) Float(key string) (float64, error) {
 	return strconv.ParseFloat(c.getdata(key), 64)
 }
 
-// DefaultFloat returns the float64 value for a given key.
-// if err != nil return defaltval
+// DefaultFloat returns the float64 value for a given key, or defaultval on error.
 func (c *IniConfigContainer) DefaultFloat(key string, defaultval float64) float64 {
 	v, err := c.Float(key)
 	if err != nil {
@@ -294,8 +320,7 @@ func (c *IniConfigContainer) String(key string) string {
 	return c.getdata(key)
 }
 
-// DefaultString returns the string value for a given key.
-// if err != nil return defaltval
+// DefaultString returns the string value for a given key, or defaultval if empty.
 func (c *IniConfigContainer) DefaultString(key string, defaultval string) string {
 	v := c.String(key)
 	if v == "" {
@@ -314,8 +339,7 @@ func (c *IniConfigContainer) Strings(key string) []string {
 	return strings.Split(v, ";")
 }
 
-// DefaultStrings returns the []string value for a given key.
-// if err != nil return defaltval
+// DefaultStrings returns the []string value for a given key, or defaultval if nil.
 func (c *IniConfigContainer) DefaultStrings(key string, defaultval []string) []string {
 	v := c.Strings(key)
 	if v == nil {
@@ -329,23 +353,21 @@ func (c *IniConfigContainer) GetSection(section string) (map[string]string, erro
 	if v, ok := c.data[section]; ok {
 		return v, nil
 	}
-	return nil, errors.New("not exist setction")
+	return nil, errors.New("section does not exist")
 }
 
 func (c *IniConfigContainer) GetAllSections() map[string]map[string]string {
 	return c.data
 }
 
-// SaveConfigFile save the config into file
+// SaveConfigFile writes the configuration to the given file.
 func (c *IniConfigContainer) SaveConfigFile(filename string) (err error) {
-	// Write configuration file by filename.
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer closer.LogClose(f, log.Printf)
 
-	// Get section or key comments. Fixed #1607
 	getCommentStr := func(section, key string) string {
 		comment, ok := "", false
 		if len(key) == 0 {
@@ -355,19 +377,16 @@ func (c *IniConfigContainer) SaveConfigFile(filename string) (err error) {
 		}
 
 		if ok {
-			// Empty comment
 			if len(comment) == 0 || len(strings.TrimSpace(comment)) == 0 {
 				return string(bNumComment)
 			}
 			prefix := string(bNumComment)
-			// Add the line head character "#"
-			return prefix + strings.Replace(comment, lineBreak, lineBreak+prefix, -1)
+			return prefix + strings.ReplaceAll(comment, lineBreak, lineBreak+prefix)
 		}
 		return ""
 	}
 
 	buf := bytes.NewBuffer(nil)
-	// Save default section at first place
 	if dt, ok := c.data[defaultSection]; ok {
 		keys := []string{}
 		for key := range dt {
@@ -377,26 +396,22 @@ func (c *IniConfigContainer) SaveConfigFile(filename string) (err error) {
 		for _, key := range keys {
 			val := dt[key]
 			if key != " " {
-				// Write key comments.
 				if v := getCommentStr(defaultSection, key); len(v) > 0 {
 					if _, err = buf.WriteString(v + lineBreak); err != nil {
 						return err
 					}
 				}
 
-				// Write key and value.
 				if _, err = buf.WriteString(key + string(bEqual) + val + lineBreak); err != nil {
 					return err
 				}
 			}
 		}
 
-		// Put a line between sections.
 		if _, err = buf.WriteString(lineBreak); err != nil {
 			return err
 		}
 	}
-	// Save named sections
 	sections := []string{}
 	for section := range c.data {
 		sections = append(sections, section)
@@ -405,14 +420,12 @@ func (c *IniConfigContainer) SaveConfigFile(filename string) (err error) {
 	for _, section := range sections {
 		dt := c.data[section]
 		if section != defaultSection {
-			// Write section comments.
 			if v := getCommentStr(section, ""); len(v) > 0 {
 				if _, err = buf.WriteString(v + lineBreak); err != nil {
 					return err
 				}
 			}
 
-			// Write section name.
 			if _, err = buf.WriteString(string(sectionStart) + section + string(sectionEnd) + lineBreak); err != nil {
 				return err
 			}
@@ -424,21 +437,18 @@ func (c *IniConfigContainer) SaveConfigFile(filename string) (err error) {
 			for _, key := range keys {
 				val := dt[key]
 				if key != " " {
-					// Write key comments.
 					if v := getCommentStr(section, key); len(v) > 0 {
 						if _, err = buf.WriteString(v + lineBreak); err != nil {
 							return err
 						}
 					}
 
-					// Write key and value.
 					if _, err = buf.WriteString(key + string(bEqual) + val + lineBreak); err != nil {
 						return err
 					}
 				}
 			}
 
-			// Put a line between sections.
 			if _, err = buf.WriteString(lineBreak); err != nil {
 				return err
 			}
@@ -451,9 +461,7 @@ func (c *IniConfigContainer) SaveConfigFile(filename string) (err error) {
 	return nil
 }
 
-// Set writes a new value for key.
-// if write to one section, the key need be "section::key".
-// if the section is not existed, it panics.
+// Set writes a new value for key. Use "section::key" for section-specific keys.
 func (c *IniConfigContainer) Set(key, value string) error {
 	c.Lock()
 	defer c.Unlock()
@@ -486,10 +494,10 @@ func (c *IniConfigContainer) DIY(key string) (v interface{}, err error) {
 	if v, ok := c.data[strings.ToLower(key)]; ok {
 		return v, nil
 	}
-	return v, errors.New("key not find")
+	return v, errors.New("key not found")
 }
 
-// section.key or key
+// getdata returns the value for section.key or key.
 func (c *IniConfigContainer) getdata(key string) string {
 	if len(key) == 0 {
 		return ""

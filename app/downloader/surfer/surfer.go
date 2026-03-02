@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// surfer是一款Go语言编写的高并发web下载器，支持 GET/POST/HEAD 方法及 http/https 协议，同时支持固定UserAgent自动保存cookie与随机大量UserAgent禁用cookie两种模式，高度模拟浏览器行为，可实现模拟登录等功能。
+// Package surfer provides a high-concurrency web downloader written in Go.
+// It supports GET/POST/HEAD methods and http/https, fixed UserAgent with cookie
+// persistence or random UserAgents without cookies, and simulates browser behavior for login flows.
 package surfer
 
 import (
@@ -29,7 +31,7 @@ var (
 	tempJsDir    = "./tmp"
 	// phantomjsFile = filepath.Clean(path.Join(os.Getenv("GOPATH"), `/src/github.com/andeya/surfer/phantomjs/phantomjs`))
 	phantomjsFile = `./phantomjs`
-	cookieJar, _  = cookiejar.New(nil)
+	cookieJar, _  = cookiejar.New(nil) // nil options never returns error
 )
 
 func Download(req Request) (resp *http.Response, err error) {
@@ -44,7 +46,7 @@ func Download(req Request) (resp *http.Response, err error) {
 	return
 }
 
-// 销毁Phantomjs的js临时文件
+// DestroyJsFiles removes PhantomJS temporary JS files.
 func DestroyJsFiles() {
 	if pt, ok := phantom.(*Phantom); ok {
 		pt.DestroyJsFiles()

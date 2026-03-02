@@ -14,56 +14,45 @@ import (
 	"github.com/andeya/pholcus/common/ping"
 )
 
-// 清除标签
+// CleanHtml strips HTML tags at increasing levels of aggressiveness based on depth.
 func CleanHtml(str string, depth int) string {
 	if depth > 0 {
-		//将HTML标签全转换成小写
 		re, _ := regexp.Compile("<[\\S\\s]+?>")
 		str = re.ReplaceAllStringFunc(str, strings.ToLower)
 	}
 	if depth > 1 {
-		//去除STYLE
 		re, _ := regexp.Compile("<style[\\S\\s]+?</style>")
 		str = re.ReplaceAllString(str, "")
 	}
 	if depth > 2 {
-		//去除SCRIPT
 		re, _ := regexp.Compile("<script[\\S\\s]+?</script>")
 		str = re.ReplaceAllString(str, "")
 	}
 	if depth > 3 {
-		//去除所有尖括号内的HTML代码，并换成换行符
 		re, _ := regexp.Compile("<[\\S\\s]+?>")
 		str = re.ReplaceAllString(str, "\n")
 	}
 	if depth > 4 {
-		//去除连续的换行符
 		re, _ := regexp.Compile("\\s{2,}")
 		str = re.ReplaceAllString(str, "\n")
 	}
 	return str
 }
 
-// 提取文章页的正文
-// 思路：认为文本节点最长的标签的父标签为文章正文
+// ExtractArticle extracts the main article body from an HTML page.
+// Heuristic: the parent of the tag with the longest text node is treated as the article body.
 func ExtractArticle(html string) string {
-	//将HTML标签全转换成小写
 	re := regexp.MustCompile("<[\\S\\s]+?>")
 	html = re.ReplaceAllStringFunc(html, strings.ToLower)
-	//去除head
 	re = regexp.MustCompile("<head[\\S\\s]+?</head>")
 	html = re.ReplaceAllString(html, "")
-	//去除STYLE
 	re = regexp.MustCompile("<style[\\S\\s]+?</style>")
 	html = re.ReplaceAllString(html, "")
-	//去除SCRIPT
 	re = regexp.MustCompile("<script[\\S\\s]+?</script>")
 	html = re.ReplaceAllString(html, "")
-	//去除注释
 	re = regexp.MustCompile("<![\\S\\s]+?>")
 	html = re.ReplaceAllString(html, "")
 
-	// 获取每个子标签
 	re = regexp.MustCompile("<[A-Za-z]+[^<]*>([^<>]+)</[A-Za-z]+>")
 	ss := re.FindAllStringSubmatch(html, -1)
 
@@ -77,7 +66,7 @@ func ExtractArticle(html string) string {
 		}
 	}
 
-	html = strings.Replace(html, ss[idx][0], `<pholcus id="pholcus">`+ss[idx][1]+`</pholcus>`, -1)
+	html = strings.ReplaceAll(html, ss[idx][0], `<pholcus id="pholcus">`+ss[idx][1]+`</pholcus>`)
 	r := strings.NewReader(html)
 	dom, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
@@ -86,34 +75,34 @@ func ExtractArticle(html string) string {
 	return dom.Find("pholcus#pholcus").Parent().Text()
 }
 
-// 去除常见转义字符
+// Deprive removes common whitespace escape characters.
 func Deprive(s string) string {
-	s = strings.Replace(s, "\n", "", -1)
-	s = strings.Replace(s, "\r", "", -1)
-	s = strings.Replace(s, "\t", "", -1)
-	s = strings.Replace(s, ` `, "", -1)
+	s = strings.ReplaceAll(s, "\n", "")
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, "\t", "")
+	s = strings.ReplaceAll(s, ` `, "")
 	return s
 }
 
-// 去除常见转义字符
+// Deprive2 removes both actual and literal whitespace escape sequences.
 func Deprive2(s string) string {
-	s = strings.Replace(s, "\n", "", -1)
-	s = strings.Replace(s, "\r", "", -1)
-	s = strings.Replace(s, "\t", "", -1)
-	s = strings.Replace(s, `\n`, "", -1)
-	s = strings.Replace(s, `\r`, "", -1)
-	s = strings.Replace(s, `\t`, "", -1)
-	s = strings.Replace(s, ` `, "", -1)
+	s = strings.ReplaceAll(s, "\n", "")
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, "\t", "")
+	s = strings.ReplaceAll(s, `\n`, "")
+	s = strings.ReplaceAll(s, `\r`, "")
+	s = strings.ReplaceAll(s, `\t`, "")
+	s = strings.ReplaceAll(s, ` `, "")
 	return s
 }
 
-// 舍去尾数
+// Floor truncates f to n decimal places.
 func Floor(f float64, n int) float64 {
 	pow10_n := math.Pow10(n)
 	return math.Trunc((f)*pow10_n) / pow10_n
 }
 
-// cookies字符串转[]*http.Cookie，（如"mt=ci%3D-1_0; thw=cn; sec=5572dc7c40ce07d4e8c67e4879a; v=0;"）
+// SplitCookies parses a cookie string (e.g. "mt=ci%3D-1_0; thw=cn; v=0;") into []*http.Cookie.
 func SplitCookies(cookieStr string) (cookies []*http.Cookie) {
 	slice := strings.Split(cookieStr, ";")
 	for _, v := range slice {
@@ -153,7 +142,7 @@ func GBKToUTF8(src string) string {
 	return DecodeString(src, "GB18030")
 }
 
-// 将"&#21654;&#21857;&#33394;&#124;&#32511;&#33394;"转为"咖啡色|绿色"
+// UnicodeToUTF8 converts HTML numeric character references (e.g. "&#21654;&#21857;") to UTF-8.
 func UnicodeToUTF8(str string) string {
 	str = strings.TrimLeft(str, "&#")
 	str = strings.TrimRight(str, ";")
@@ -167,7 +156,7 @@ func UnicodeToUTF8(str string) string {
 	return strings.Join(strSlice, "")
 }
 
-// 将`{"area":[["quanguo","\u5168\u56fd\u8054\u9500"]]｝`转为`{"area":[["quanguo","全国联销"]]｝`
+// Unicode16ToUTF8 converts \uXXXX escape sequences in a string to UTF-8 characters.
 func Unicode16ToUTF8(str string) string {
 	i := 0
 	if strings.Index(str, `\u`) > 0 {
@@ -217,47 +206,34 @@ func Ping(address string, timeoutSecond int) (alive bool, err error, timedelay t
 	return ping.Ping(address, timeoutSecond)
 }
 
-// html过滤注释
-// var htmlReg = regexp.MustCompile(`(<!--(.)*-->)|([\s\v]+/*([^(/\*)]|[^(\*/)])*\*/)|([\t\n\f\r\v\v]+[#|//][^\t\n\f\r\v]+)`) //|([\r|\f|\t|\n|\v])
-var htmlReg = regexp.MustCompile(`(\*{1,2}[\s\S]*?\*)|(<!-[\s\S]*?-->)|(^\s*\n)`) //(//[\s\S]*?\n)|
+// htmlReg matches comment blocks and blank lines for HTML filtering.
+var htmlReg = regexp.MustCompile(`(\*{1,2}[\s\S]*?\*)|(<!-[\s\S]*?-->)|(^\s*\n)`)
 
-// 处理html文件--add by lyken 20160512
+// ProcessHtml removes comments from an HTML string.
 func ProcessHtml(html string) string {
-	//去除注释
 	html = htmlReg.ReplaceAllString(html, "")
-	//re := regexp.MustCompile("<![\\S\\s]+?>")
-	//html = re.ReplaceAllString(html, "")
-
-	//将HTML标签全转换成小写
-	//re, _ = regexp.Compile("<[\\S\\s]+?>")
-	//html = re.ReplaceAllStringFunc(html, strings.ToLower)
-
-	//去除连续的换行符
-	//re, _ = regexp.Compile("\\s{2,}")
-	//html = re.ReplaceAllString(html, "\n")
-
 	return html
 }
 
-// 清除换行--add by lyken 20160512
+// DepriveBreak removes all line-break characters (both actual and literal escape sequences).
 func DepriveBreak(s string) string {
-	s = strings.Replace(s, "\n", "", -1)
-	s = strings.Replace(s, "\r", "", -1)
-	s = strings.Replace(s, "\t", "", -1)
-	s = strings.Replace(s, `\n`, "", -1)
-	s = strings.Replace(s, `\r`, "", -1)
-	s = strings.Replace(s, `\t`, "", -1)
+	s = strings.ReplaceAll(s, "\n", "")
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, "\t", "")
+	s = strings.ReplaceAll(s, `\n`, "")
+	s = strings.ReplaceAll(s, `\r`, "")
+	s = strings.ReplaceAll(s, `\t`, "")
 	return s
 }
 
-// 多余的换行--add by lyken 20160819
+// DepriveMutiBreak collapses consecutive blank lines into a single newline.
 func DepriveMutiBreak(s string) string {
 	re, _ := regexp.Compile(`([^\n\f\r\t 　 ]*)([ 　 ]*[\n\f\r\t]+[ 　 ]*)+`)
 	return re.ReplaceAllString(s, "${1}\n")
 
 }
 
-// 在原有网址上添加参数--add by lyken 20160901
+// HrefSub appends query parameters to an existing URL.
 func HrefSub(src string, sub string) string {
 	if len(sub) > 0 {
 		if strings.Index(src, "?") > -1 {
@@ -269,10 +245,9 @@ func HrefSub(src string, sub string) string {
 	return src
 }
 
-// 域名获取 Reg
 var domainReg = regexp.MustCompile(`([a-zA-Z0-9]+://([a-zA-Z0-9\:\_\-\.])+(/)?)(.)*`)
 
-// 网址组合--add by lyken 20160512
+// GetHerf resolves a relative or absolute href against a base URL and current page URL.
 func GetHerf(baseurl string, url string, herf string, mustBase bool) string {
 	if strings.HasPrefix(herf, `javascript:`) {
 		return ``
@@ -345,7 +320,7 @@ func GetHerf(baseurl string, url string, herf string, mustBase bool) string {
 						preUrl += str
 					}
 				}
-				result = preUrl + strings.Replace(herf, "../", "", -1)
+				result = preUrl + strings.ReplaceAll(herf, "../", "")
 			}
 		} else {
 			result = url + herf

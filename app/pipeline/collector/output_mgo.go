@@ -12,14 +12,13 @@ import (
 	"github.com/andeya/pholcus/logs"
 )
 
-/************************ MongoDB 输出 ***************************/
+// --- MongoDB Output ---
 
 func init() {
 	DataOutput["mgo"] = func(self *Collector) error {
-		//连接数据库
 		if mgo.Error() != nil {
 			mgo.Refresh()
-			if mgo.Error() != nil { // try again
+			if mgo.Error() != nil {
 				return fmt.Errorf("MongoBD数据库链接失败: %v", mgo.Error())
 			}
 		}

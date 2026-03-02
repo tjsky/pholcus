@@ -36,18 +36,18 @@ type Surf struct {
 	CookieJar *cookiejar.Jar
 }
 
-// New 创建一个Surf下载器
+// New creates a Surf downloader instance.
 func New(jar ...*cookiejar.Jar) Surfer {
 	s := new(Surf)
 	if len(jar) != 0 {
 		s.CookieJar = jar[0]
 	} else {
-		s.CookieJar, _ = cookiejar.New(nil)
+		s.CookieJar, _ = cookiejar.New(nil) // nil options never returns error
 	}
 	return s
 }
 
-// Download 实现surfer下载器接口
+// Download implements the Surfer interface.
 func (self *Surf) Download(req Request) (resp *http.Response, err error) {
 	param, err := NewParam(req)
 	if err != nil {

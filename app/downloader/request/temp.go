@@ -10,7 +10,7 @@ import (
 
 type Temp map[string]interface{}
 
-// 返回临时缓存数据
+// get returns temporary cached data by deserializing from JSON.
 func (self Temp) get(key string, defaultValue interface{}) interface{} {
 	defer func() {
 		if p := recover(); p != nil {

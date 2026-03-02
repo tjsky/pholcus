@@ -99,9 +99,9 @@ var GoogleSearch = &spider.Spider{
 				ParseFunc: func(ctx *spider.Context) {
 					query := ctx.GetDom()
 					txt := query.Find("#resultStats").Text()
-					re, _ := regexp.Compile(`,+`)
+					re := regexp.MustCompile(`,+`)
 					txt = re.ReplaceAllString(txt, "")
-					re, _ = regexp.Compile(`[\d]+`)
+					re = regexp.MustCompile(`[\d]+`)
 					txt = re.FindString(txt)
 					num, _ := strconv.Atoi(txt)
 					total := int(math.Ceil(float64(num) / 10))

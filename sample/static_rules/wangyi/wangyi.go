@@ -132,7 +132,7 @@ var Wangyi = &spider.Spider{
 
 					// 获取内容
 					content := query.Find("#endText").Text()
-					re, _ := regexp.Compile("\\<[\\S\\s]+?\\>")
+					re := regexp.MustCompile("\\<[\\S\\s]+?\\>")
 					// content = re.ReplaceAllStringFunc(content, strings.ToLower)
 					content = re.ReplaceAllString(content, "")
 

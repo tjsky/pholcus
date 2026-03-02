@@ -7,7 +7,6 @@ require (
 	github.com/Shopify/sarama v1.23.1
 	github.com/andeya/gust v1.20.7
 	github.com/andybalholm/cascadia v1.0.0
-	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/kr/beanstalk v0.0.0-20180818045031-cae1762e4858
 	github.com/lxn/walk v0.0.0-20190619151032-86d8802c197a

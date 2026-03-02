@@ -113,7 +113,7 @@ func NewParam(req Request) (param *Param, err error) {
 	return
 }
 
-// 回写Request内容
+// writeback populates the response with Request content.
 func (self *Param) writeback(resp *http.Response) *http.Response {
 	if resp == nil {
 		resp = new(http.Response)

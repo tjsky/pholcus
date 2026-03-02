@@ -13,16 +13,15 @@ import (
 	"github.com/andeya/pholcus/logs"
 )
 
-/************************ Mysql 输出 ***************************/
-//sql转换结构体
+// MyTable holds SQL conversion state for MySQL output.
 type MyTable struct {
 	tableName        string
-	columnNames      [][2]string   // 标题字段
-	rowsCount        int           // 当前缓存的待插入数据的行数
-	args             []interface{} // 数据
+	columnNames      [][2]string   // column header fields
+	rowsCount        int           // number of rows pending insert
+	args             []interface{} // data
 	sqlCode          string
 	customPrimaryKey bool
-	size             int // 内容大小的近似值
+	size             int // approximate content size
 }
 
 var (
@@ -30,32 +29,36 @@ var (
 	db                 *sql.DB
 	once               sync.Once
 	max_allowed_packet = config.MYSQL_MAX_ALLOWED_PACKET - 1024
-	maxConnChan        = make(chan bool, config.MYSQL_CONN_CAP) //最大执行数限制
+	maxConnChan        = make(chan bool, config.MYSQL_CONN_CAP) // max concurrent execution limit
 )
 
+// DB returns the MySQL database connection and any initialization error.
 func DB() (*sql.DB, error) {
 	return db, err
 }
 
+// Refresh initializes or reconnects the MySQL database.
 func Refresh() {
 	once.Do(func() {
 		db, err = sql.Open("mysql", config.MYSQL_CONN_STR+"/"+config.DB_NAME+"?charset=utf8")
 		if err != nil {
-			logs.Log.Error("Mysql：%v\n", err)
+			logs.Log.Error("Mysql: %v\n", err)
 			return
 		}
 		db.SetMaxOpenConns(config.MYSQL_CONN_CAP)
 		db.SetMaxIdleConns(config.MYSQL_CONN_CAP)
 	})
 	if err = db.Ping(); err != nil {
-		logs.Log.Error("Mysql：%v\n", err)
+		logs.Log.Error("Mysql: %v\n", err)
 	}
 }
 
+// New creates a new MyTable instance.
 func New() *MyTable {
 	return &MyTable{}
 }
 
+// Clone returns a copy of the MyTable with the same table name, columns, and primary key settings.
 func (m *MyTable) Clone() *MyTable {
 	return &MyTable{
 		tableName:        m.tableName,
@@ -64,13 +67,13 @@ func (m *MyTable) Clone() *MyTable {
 	}
 }
 
-// 设置表名
+// SetTableName sets the table name for the MyTable.
 func (self *MyTable) SetTableName(name string) *MyTable {
 	self.tableName = wrapSqlKey(name)
 	return self
 }
 
-// 设置表单列
+// AddColumn adds one or more column definitions to the table.
 func (self *MyTable) AddColumn(names ...string) *MyTable {
 	for _, name := range names {
 		name = strings.Trim(name, " ")
@@ -80,14 +83,14 @@ func (self *MyTable) AddColumn(names ...string) *MyTable {
 	return self
 }
 
-// 设置主键的语句（可选）
+// CustomPrimaryKey sets a custom primary key definition (optional).
 func (self *MyTable) CustomPrimaryKey(primaryKeyCode string) *MyTable {
 	self.AddColumn(primaryKeyCode)
 	self.customPrimaryKey = true
 	return self
 }
 
-// 生成"创建表单"的语句，执行前须保证SetTableName()、AddColumn()已经执行
+// Create generates and executes a CREATE TABLE statement. Requires prior SetTableName() and AddColumn().
 func (self *MyTable) Create() error {
 	if len(self.columnNames) == 0 {
 		return errors.New("Column can not be empty")
@@ -111,7 +114,7 @@ func (self *MyTable) Create() error {
 	return err
 }
 
-// 清空表单，执行前须保证SetTableName()已经执行
+// Truncate empties the table. Requires prior SetTableName().
 func (self *MyTable) Truncate() error {
 	maxConnChan <- true
 	defer func() {
@@ -121,7 +124,6 @@ func (self *MyTable) Truncate() error {
 	return err
 }
 
-// 设置插入的1行数据
 func (self *MyTable) addRow(value []string) *MyTable {
 	for i, count := 0, len(value); i < count; i++ {
 		self.args = append(self.args, value[i])
@@ -130,7 +132,7 @@ func (self *MyTable) addRow(value []string) *MyTable {
 	return self
 }
 
-// 智能插入数据，每次1行
+// AutoInsert adds a row for insert, flushing automatically when buffer is full or size limit is reached.
 func (self *MyTable) AutoInsert(value []string) *MyTable {
 	if self.rowsCount > 100 {
 		util.CheckErr(self.FlushInsert())
@@ -152,7 +154,7 @@ func (self *MyTable) AutoInsert(value []string) *MyTable {
 	return self.addRow(value)
 }
 
-// 向sqlCode添加"插入数据"的语句，执行前须保证Create()、AutoInsert()已经执行
+// FlushInsert executes the buffered INSERT. Create and AutoInsert must be called first.
 func (self *MyTable) FlushInsert() error {
 	if self.rowsCount == 0 {
 		return nil
@@ -175,7 +177,6 @@ func (self *MyTable) FlushInsert() error {
 	self.sqlCode += strings.Repeat(blank, self.rowsCount)[1:] + `;`
 
 	defer func() {
-		// 清空临时数据
 		self.args = []interface{}{}
 		self.rowsCount = 0
 		self.size = 0
@@ -191,7 +192,7 @@ func (self *MyTable) FlushInsert() error {
 	return err
 }
 
-// 获取全部数据
+// SelectAll returns all rows from the table. SetTableName must be called first.
 func (self *MyTable) SelectAll() (*sql.Rows, error) {
 	if self.tableName == "" {
 		return nil, errors.New("表名不能为空")
@@ -206,5 +207,5 @@ func (self *MyTable) SelectAll() (*sql.Rows, error) {
 }
 
 func wrapSqlKey(s string) string {
-	return "`" + strings.Replace(s, "`", "", -1) + "`"
+	return "`" + strings.ReplaceAll(s, "`", "") + "`"
 }

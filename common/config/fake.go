@@ -113,11 +113,11 @@ func (c *fakeConfigContainer) DIY(key string) (interface{}, error) {
 	if v, ok := c.data[strings.ToLower(key)]; ok {
 		return v, nil
 	}
-	return nil, errors.New("key not find")
+	return nil, errors.New("key not found")
 }
 
 func (c *fakeConfigContainer) GetSection(section string) (map[string]string, error) {
-	return nil, errors.New("not implement in the fakeConfigContainer")
+	return nil, errors.New("not implemented in fakeConfigContainer")
 }
 
 func (c *fakeConfigContainer) SaveConfigFile(filename string) error {
@@ -126,7 +126,7 @@ func (c *fakeConfigContainer) SaveConfigFile(filename string) error {
 
 var _ Configer = new(fakeConfigContainer)
 
-// NewFakeConfig return a fake Congiger
+// NewFakeConfig returns a fake Configer for testing.
 func NewFakeConfig() Configer {
 	return &fakeConfigContainer{
 		data: make(map[string]string),

@@ -11,8 +11,7 @@ import (
 func main() {
 	var values = "username=123456@qq.com&password=123456&login_btn=login_btn&submit=login_btn"
 
-	// 默认使用surf内核下载
-	log.Println("********************************************* surf内核GET下载测试开始 *********************************************")
+	log.Println("********************************************* Surf GET download test start *********************************************")
 	resp, err := surfer.Download(&surfer.DefaultRequest{
 		Url: "http://www.baidu.com/",
 	})
@@ -25,8 +24,7 @@ func main() {
 	resp.Body.Close()
 	log.Printf("baidu resp.Body: %s\nerr: %v", b, err)
 
-	// 默认使用surf内核下载
-	log.Println("********************************************* surf内核POST下载测试开始 *********************************************")
+	log.Println("********************************************* Surf POST download test start *********************************************")
 	resp, err = surfer.Download(&surfer.DefaultRequest{
 		Url:      "http://accounts.lewaos.com/",
 		Method:   "POST",
@@ -41,9 +39,8 @@ func main() {
 	resp.Body.Close()
 	log.Printf("lewaos resp.Body: %s\nerr: %v", b, err)
 
-	log.Println("********************************************* phantomjs内核GET下载测试开始 *********************************************")
+	log.Println("********************************************* PhantomJS GET download test start *********************************************")
 
-	// 指定使用phantomjs内核下载
 	resp, err = surfer.Download(&surfer.DefaultRequest{
 		Url:          "http://www.baidu.com/",
 		DownloaderID: 1,
@@ -58,9 +55,8 @@ func main() {
 	resp.Body.Close()
 	log.Printf("baidu resp.Body: %s\nerr: %v", b, err)
 
-	log.Println("********************************************* phantomjs内核POST下载测试开始 *********************************************")
+	log.Println("********************************************* PhantomJS POST download test start *********************************************")
 
-	// 指定使用phantomjs内核下载
 	resp, err = surfer.Download(&surfer.DefaultRequest{
 		DownloaderID: 1,
 		Url:          "http://accounts.lewaos.com/",

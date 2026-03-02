@@ -22,16 +22,19 @@ import (
 
 	"golang.org/x/net/html/charset"
 
+	"github.com/andeya/gust/result"
 	"github.com/andeya/pholcus/logs"
 )
 
 const (
-	// Spider中启用Keyin的初始值
+	// USE_KEYIN is the initial value for enabling Keyin in Spider.
 	USE_KEYIN = "\r\t\n"
 )
 
 var (
-	re = regexp.MustCompile(">[ \t\n\v\f\r]+<")
+	re             = regexp.MustCompile(">[ \t\n\v\f\r]+<")
+	jsonpKeyRegexp = regexp.MustCompile(`([^\s\:\{\,\d"]+|[a-z][a-z\d]*)\s*\:`)
+	isNumRegexp    = regexp.MustCompile(`^\d+$`)
 )
 
 // JsonpToJson modify jsonp string to json string
@@ -47,12 +50,11 @@ func JsonpToJson(json string) string {
 	if end > start && end != -1 && start != -1 {
 		json = json[start : end+1]
 	}
-	json = strings.Replace(json, "\\'", "", -1)
-	regDetail, _ := regexp.Compile("([^\\s\\:\\{\\,\\d\"]+|[a-z][a-z\\d]*)\\s*\\:")
-	return regDetail.ReplaceAllString(json, "\"$1\":")
+	json = strings.ReplaceAll(json, "\\'", "")
+	return jsonpKeyRegexp.ReplaceAllString(json, "\"$1\":")
 }
 
-// 创建目录
+// Mkdir creates the directory for the given path.
 func Mkdir(Path string) {
 	p, _ := path.Split(Path)
 	if p == "" {
@@ -61,7 +63,7 @@ func Mkdir(Path string) {
 	d, err := os.Stat(p)
 	if err != nil || !d.IsDir() {
 		if err = os.MkdirAll(p, 0777); err != nil {
-			logs.Log.Error("创建路径失败[%v]: %v\n", Path, err)
+			logs.Log.Error("failed to create path [%v]: %v\n", Path, err)
 		}
 	}
 }
@@ -95,11 +97,26 @@ func IsFileExists(path string) bool {
 	return !fi.IsDir()
 }
 
-// 遍历文件，可指定后缀
-func WalkFiles(targpath string, suffixes ...string) (filelist []string) {
-	if !filepath.IsAbs(targpath) {
-		targpath, _ = filepath.Abs(targpath)
+// walkPath resolves targpath to an absolute path. Internal helper using gust.Result.
+func walkPath(targpath string) result.Result[string] {
+	if filepath.IsAbs(targpath) {
+		return result.Ok(targpath)
 	}
+	abs, err := filepath.Abs(targpath)
+	if err != nil {
+		return result.TryErr[string](err)
+	}
+	return result.Ok(abs)
+}
+
+// WalkFiles walks files under targpath, optionally filtered by suffixes.
+func WalkFiles(targpath string, suffixes ...string) (filelist []string) {
+	r := walkPath(targpath)
+	if r.IsErr() {
+		logs.Log.Error("util.WalkFiles: %v\n", r.UnwrapErr())
+		return
+	}
+	targpath = r.Unwrap()
 	err := filepath.Walk(targpath, func(retpath string, f os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -127,11 +144,14 @@ func WalkFiles(targpath string, suffixes ...string) (filelist []string) {
 	return
 }
 
-// 遍历目录，可指定后缀
+// WalkDir walks directories under targpath, optionally filtered by suffixes.
 func WalkDir(targpath string, suffixes ...string) (dirlist []string) {
-	if !filepath.IsAbs(targpath) {
-		targpath, _ = filepath.Abs(targpath)
+	r := walkPath(targpath)
+	if r.IsErr() {
+		logs.Log.Error("util.WalkDir: %v\n", r.UnwrapErr())
+		return
 	}
+	targpath = r.Unwrap()
 	err := filepath.Walk(targpath, func(retpath string, f os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -159,11 +179,14 @@ func WalkDir(targpath string, suffixes ...string) (dirlist []string) {
 	return
 }
 
-// 遍历文件，可指定后缀，返回相对路径
+// WalkRelFiles walks files under targpath and returns relative paths, optionally filtered by suffixes.
 func WalkRelFiles(targpath string, suffixes ...string) (filelist []string) {
-	if !filepath.IsAbs(targpath) {
-		targpath, _ = filepath.Abs(targpath)
+	r := walkPath(targpath)
+	if r.IsErr() {
+		logs.Log.Error("util.WalkRelFiles: %v\n", r.UnwrapErr())
+		return
 	}
+	targpath = r.Unwrap()
 	err := filepath.Walk(targpath, func(retpath string, f os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -192,11 +215,14 @@ func WalkRelFiles(targpath string, suffixes ...string) (filelist []string) {
 	return
 }
 
-// 遍历目录，可指定后缀，返回相对路径
+// WalkRelDir walks directories under targpath and returns relative paths, optionally filtered by suffixes.
 func WalkRelDir(targpath string, suffixes ...string) (dirlist []string) {
-	if !filepath.IsAbs(targpath) {
-		targpath, _ = filepath.Abs(targpath)
+	r := walkPath(targpath)
+	if r.IsErr() {
+		logs.Log.Error("util.WalkRelDir: %v\n", r.UnwrapErr())
+		return
 	}
+	targpath = r.Unwrap()
 	err := filepath.Walk(targpath, func(retpath string, f os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -225,20 +251,27 @@ func WalkRelDir(targpath string, suffixes ...string) (dirlist []string) {
 	return
 }
 
-// 转相对路径
+// RelPath converts targpath to a path relative to the current working directory.
 func RelPath(targpath string) string {
-	basepath, _ := filepath.Abs("./")
-	rel, _ := filepath.Rel(basepath, targpath)
-	return strings.Replace(rel, `\`, `/`, -1)
+	basepath, err := filepath.Abs("./")
+	if err != nil {
+		logs.Log.Error("util.RelPath: filepath.Abs: %v\n", err)
+		return targpath
+	}
+	rel, err := filepath.Rel(basepath, targpath)
+	if err != nil {
+		logs.Log.Error("util.RelPath: filepath.Rel(%q, %q): %v\n", basepath, targpath, err)
+		return targpath
+	}
+	return strings.ReplaceAll(rel, `\`, `/`)
 }
 
 // The IsNum judges string is number or not.
 func IsNum(a string) bool {
-	reg, _ := regexp.Compile("^\\d+$")
-	return reg.MatchString(a)
+	return isNumRegexp.MatchString(a)
 }
 
-// simple xml to string  support utf8
+// XML2mapstr converts simple XML to a string map (supports UTF-8).
 func XML2mapstr(xmldoc string) map[string]string {
 	var t xml.Token
 	var err error
@@ -257,14 +290,13 @@ func XML2mapstr(xmldoc string) map[string]string {
 			content := Bytes2String([]byte(token))
 			m[key] = content
 		default:
-			// ...
 		}
 	}
 
 	return m
 }
 
-// string to hash
+// MakeHash converts a string to a CRC32 hash hex string.
 func MakeHash(s string) string {
 	const IEEE = 0xedb88320
 	var IEEETable = crc32.MakeTable(IEEE)
@@ -278,7 +310,7 @@ func HashString(encode string) uint64 {
 	return hash.Sum64()
 }
 
-// 制作特征值方法一
+// MakeUnique creates a unique fingerprint for obj (method 1: FNV-64).
 func MakeUnique(obj interface{}) string {
 	b, _ := json.Marshal(obj)
 	hash := fnv.New64()
@@ -286,7 +318,7 @@ func MakeUnique(obj interface{}) string {
 	return strconv.FormatUint(hash.Sum64(), 10)
 }
 
-// 制作特征值方法二
+// MakeMd5 creates an MD5 fingerprint for obj (method 2).
 func MakeMd5(obj interface{}, length int) string {
 	if length > 32 {
 		length = 32
@@ -298,16 +330,16 @@ func MakeMd5(obj interface{}, length int) string {
 	return s[:length]
 }
 
-// 将对象转为json字符串
+// JsonString converts obj to a JSON string.
 func JsonString(obj interface{}) string {
 	b, _ := json.Marshal(obj)
 	s := fmt.Sprintf("%+v", Bytes2String(b))
-	r := strings.Replace(s, `\u003c`, "<", -1)
-	r = strings.Replace(r, `\u003e`, ">", -1)
+	r := strings.ReplaceAll(s, `\u003c`, "<")
+	r = strings.ReplaceAll(r, `\u003e`, ">")
 	return r
 }
 
-// 检查并打印错误
+// CheckErr checks and logs the error if non-nil.
 func CheckErr(err error) {
 	if err != nil {
 		logs.Log.Error("%v", err)
@@ -319,8 +351,7 @@ func CheckErrPanic(err error) {
 	}
 }
 
-// 将文件名非法字符替换为相似字符
-
+// FileNameReplace replaces invalid filename characters with similar alternatives.
 func FileNameReplace(fileName string) string {
 	var q = 1
 	r := []rune(fileName)
@@ -352,10 +383,10 @@ func FileNameReplace(fileName string) string {
 			r[i] = '╲'
 		}
 	}
-	return strings.Replace(string(r), USE_KEYIN, ``, -1)
+	return strings.ReplaceAll(string(r), USE_KEYIN, ``)
 }
 
-// 将Excel工作表名中非法字符替换为下划线
+// ExcelSheetNameReplace replaces invalid Excel sheet name characters with underscores.
 func ExcelSheetNameReplace(fileName string) string {
 	r := []rune(fileName)
 	size := len(r)
@@ -365,7 +396,7 @@ func ExcelSheetNameReplace(fileName string) string {
 			r[i] = '_'
 		}
 	}
-	return strings.Replace(string(r), USE_KEYIN, ``, -1)
+	return strings.ReplaceAll(string(r), USE_KEYIN, ``)
 }
 
 func Atoa(str interface{}) string {
@@ -418,14 +449,14 @@ func RandomCreateBytes(n int, alphabets ...byte) []byte {
 	return bytes
 }
 
-// 切分用户输入的自定义信息
+// KeyinsParse splits user-provided custom keyins into unique tokens.
 func KeyinsParse(keyins string) []string {
 	keyins = strings.TrimSpace(keyins)
 	if keyins == "" {
 		return []string{}
 	}
 	for _, v := range re.FindAllString(keyins, -1) {
-		keyins = strings.Replace(keyins, v, "><", -1)
+		keyins = strings.ReplaceAll(keyins, v, "><")
 	}
 	m := map[string]bool{}
 	for _, v := range strings.Split(keyins, "><") {
@@ -445,16 +476,16 @@ func KeyinsParse(keyins string) []string {
 	return s
 }
 
-// Bytes2String直接转换底层指针，两者指向的相同的内存，改一个另外一个也会变。
-// 效率是string([]byte{})的百倍以上，且转换量越大效率优势越明显。
+// Bytes2String converts []byte to string via direct pointer conversion.
+// Both share the same underlying memory; modifying one affects the other.
+// Much faster than string([]byte{}) for large conversions.
 func Bytes2String(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-// String2Bytes直接转换底层指针，两者指向的相同的内存，改一个另外一个也会变。
-// 效率是string([]byte{})的百倍以上，且转换量越大效率优势越明显。
-// 转换之后若没做其他操作直接改变里面的字符，则程序会崩溃。
-// 如 b:=String2bytes("xxx"); b[1]='d'; 程序将panic。
+// String2Bytes converts string to []byte via direct pointer conversion.
+// Both share the same underlying memory; modifying one affects the other.
+// Do not mutate the returned slice directly (e.g. b[1]='d') or the program may panic.
 func String2Bytes(s string) []byte {
 	x := (*[2]uintptr)(unsafe.Pointer(&s))
 	h := [3]uintptr{x[0], x[1], x[1]}

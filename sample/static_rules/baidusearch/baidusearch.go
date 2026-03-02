@@ -72,7 +72,7 @@ var BaiduSearch = &spider.Spider{
 				ParseFunc: func(ctx *spider.Context) {
 					query := ctx.GetDom()
 					total1 := query.Find(".nums").Text()
-					re, _ := regexp.Compile(`[\D]*`)
+					re := regexp.MustCompile(`[\D]*`)
 					total1 = re.ReplaceAllString(total1, "")
 					total2, _ := strconv.Atoi(total1)
 					total := int(math.Ceil(float64(total2) / 50))
@@ -106,7 +106,7 @@ var BaiduSearch = &spider.Spider{
 						href, _ := s.Find(".t >a").Attr("href")
 						tar := s.Find(".g").Text()
 
-						re, _ := regexp.Compile("\\<[\\S\\s]+?\\>")
+						re := regexp.MustCompile("\\<[\\S\\s]+?\\>")
 						// title = re.ReplaceAllStringFunc(title, strings.ToLower)
 						// content = re.ReplaceAllStringFunc(content, strings.ToLower)
 

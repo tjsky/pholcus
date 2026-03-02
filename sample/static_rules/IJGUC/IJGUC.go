@@ -102,43 +102,43 @@ var IJGUC = &spider.Spider{
 					content := query.Find("#col1").Text()
 
 					// 过滤标签
-					re, _ := regexp.Compile("\\<[\\S\\s]+?\\>")
+					re := regexp.MustCompile("\\<[\\S\\s]+?\\>")
 					content = re.ReplaceAllString(content, "")
 
 					// Title
-					re, _ = regexp.Compile("Title:(.*?)Author:")
+					re = regexp.MustCompile("Title:(.*?)Author:")
 					title := re.FindStringSubmatch(content)[1]
 					// Author
-					re, _ = regexp.Compile("Author:(.*?)Addresses:")
+					re = regexp.MustCompile("Author:(.*?)Addresses:")
 					au := re.FindStringSubmatch(content)
 					var author string
 					if len(au) > 0 {
 						author = au[1]
 					} else {
-						re, _ = regexp.Compile("Author:(.*?)Address:")
+						re = regexp.MustCompile("Author:(.*?)Address:")
 						author = re.FindStringSubmatch(content)[1]
 					}
 					// Addresses & Address
-					re, _ = regexp.Compile("Addresses:(.*?)Journal:")
+					re = regexp.MustCompile("Addresses:(.*?)Journal:")
 					address := re.FindStringSubmatch(content)
 					var addresses string
 					if len(address) > 0 {
 						addresses = address[1]
 					} else {
-						re, _ = regexp.Compile("Address:(.*?)Journal:")
+						re = regexp.MustCompile("Address:(.*?)Journal:")
 						addresses = re.FindStringSubmatch(content)[1]
 					}
 					// Journal
-					re, _ = regexp.Compile("Journal:(.*?)Abstract:")
+					re = regexp.MustCompile("Journal:(.*?)Abstract:")
 					journal := re.FindStringSubmatch(content)[1]
 					// Abstract
-					re, _ = regexp.Compile("Abstract:(.*?)Keywords:")
+					re = regexp.MustCompile("Abstract:(.*?)Keywords:")
 					abstract := re.FindStringSubmatch(content)[1]
 					// Keywords
-					re, _ = regexp.Compile("Keywords:(.*?)DOI:")
+					re = regexp.MustCompile("Keywords:(.*?)DOI:")
 					keywords := re.FindStringSubmatch(content)[1]
 					// DOI
-					re, _ = regexp.Compile("DOI: ")
+					re = regexp.MustCompile("DOI: ")
 					doiIndex := re.FindStringSubmatchIndex(content)
 					rs := []rune(content)
 					left := doiIndex[1] - 8

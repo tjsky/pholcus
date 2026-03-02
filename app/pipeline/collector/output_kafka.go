@@ -10,7 +10,8 @@ import (
 	"github.com/andeya/pholcus/logs"
 )
 
-/************************ Kafka 输出 ***************************/
+// --- Kafka Output ---
+
 func init() {
 	var (
 		kafkaSenders    = map[string]*kafka.KafkaSender{}
@@ -45,7 +46,7 @@ func init() {
 			subNamespace := util.FileNameReplace(self.subNamespace(datacell))
 			topicName := joinNamespaces(namespace, subNamespace)
 			if !topic.MatchString(topicName) {
-				logs.Log.Error("topic格式要求'^[0-9a-zA-Z_-]+$'，当前为：%s", topicName)
+				logs.Log.Error("topic must match '^[0-9a-zA-Z_-]+$', got: %s", topicName)
 				continue
 			}
 			sender, ok := kafkas[topicName]

@@ -17,6 +17,7 @@ package session
 import (
 	"errors"
 	"io"
+	"log"
 
 	"net/http"
 	"os"
@@ -24,6 +25,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/andeya/pholcus/common/closer"
 )
 
 var (
@@ -31,21 +34,21 @@ var (
 	gcmaxlifetime int64
 )
 
-// FileSessionStore File session store
+// FileSessionStore stores session data in files.
 type FileSessionStore struct {
 	sid    string
 	lock   sync.RWMutex
 	values map[interface{}]interface{}
 }
 
-// Set value to file session
+// Set stores a value in the file session.
 func (fs *FileSessionStore) Set(key, value interface{}) {
 	fs.lock.Lock()
 	defer fs.lock.Unlock()
 	fs.values[key] = value
 }
 
-// Get value from file session
+// Get retrieves a value from the file session.
 func (fs *FileSessionStore) Get(key interface{}) interface{} {
 	fs.lock.RLock()
 	defer fs.lock.RUnlock()
@@ -55,26 +58,26 @@ func (fs *FileSessionStore) Get(key interface{}) interface{} {
 	return nil
 }
 
-// Delete value in file session by given key
+// Delete removes a value from the file session by key.
 func (fs *FileSessionStore) Delete(key interface{}) {
 	fs.lock.Lock()
 	defer fs.lock.Unlock()
 	delete(fs.values, key)
 }
 
-// Flush Clean all values in file session
+// Flush clears all values in the file session.
 func (fs *FileSessionStore) Flush() {
 	fs.lock.Lock()
 	defer fs.lock.Unlock()
 	fs.values = make(map[interface{}]interface{})
 }
 
-// SessionID Get file session store id
+// SessionID returns the file session store id.
 func (fs *FileSessionStore) SessionID() string {
 	return fs.sid
 }
 
-// SessionRelease Write file session to local file with Gob string
+// SessionRelease writes the file session to local storage using Gob encoding.
 func (fs *FileSessionStore) SessionRelease(w http.ResponseWriter) {
 	b, err := EncodeGob(fs.values)
 	if err != nil {
@@ -92,30 +95,28 @@ func (fs *FileSessionStore) SessionRelease(w http.ResponseWriter) {
 	} else {
 		return
 	}
+	defer closer.LogClose(f, log.Printf)
 	f.Truncate(0)
 	f.Seek(0, 0)
 	f.Write(b)
-	f.Close()
 }
 
-// FileProvider File session provider
+// FileProvider provides file-based session storage.
 type FileProvider struct {
 	lock        sync.RWMutex
 	maxlifetime int64
 	savePath    string
 }
 
-// SessionInit Init file session provider.
-// savePath sets the session files path.
+// SessionInit initializes the file session provider.
+// savePath sets the directory for session files.
 func (fp *FileProvider) SessionInit(maxlifetime int64, savePath string) error {
 	fp.maxlifetime = maxlifetime
 	fp.savePath = savePath
 	return nil
 }
 
-// SessionRead Read file session by sid.
-// if file is not exist, create it.
-// the file path is generated from sid string.
+// SessionRead reads the file session by sid, creating the file if it does not exist.
 func (fp *FileProvider) SessionRead(sid string) (Store, error) {
 	filepder.lock.Lock()
 	defer filepder.lock.Unlock()
@@ -133,6 +134,7 @@ func (fp *FileProvider) SessionRead(sid string) (Store, error) {
 	} else {
 		return nil, err
 	}
+	defer closer.LogClose(f, log.Printf)
 	os.Chtimes(path.Join(fp.savePath, string(sid[0]), string(sid[1]), sid), time.Now(), time.Now())
 	var kv map[interface{}]interface{}
 	b, err := io.ReadAll(f)
@@ -147,13 +149,11 @@ func (fp *FileProvider) SessionRead(sid string) (Store, error) {
 			return nil, err
 		}
 	}
-	f.Close()
 	ss := &FileSessionStore{sid: sid, values: kv}
 	return ss, nil
 }
 
-// SessionExist Check file session exist.
-// it checkes the file named from sid exist or not.
+// SessionExist checks whether the file session exists (file named by sid).
 func (fp *FileProvider) SessionExist(sid string) bool {
 	filepder.lock.Lock()
 	defer filepder.lock.Unlock()
@@ -165,7 +165,7 @@ func (fp *FileProvider) SessionExist(sid string) bool {
 	return false
 }
 
-// SessionDestroy Remove all files in this save path
+// SessionDestroy removes the session file for the given sid.
 func (fp *FileProvider) SessionDestroy(sid string) error {
 	filepder.lock.Lock()
 	defer filepder.lock.Unlock()
@@ -173,7 +173,7 @@ func (fp *FileProvider) SessionDestroy(sid string) error {
 	return nil
 }
 
-// SessionGC Recycle files in save path
+// SessionGC removes expired session files from the save path.
 func (fp *FileProvider) SessionGC() {
 	filepder.lock.Lock()
 	defer filepder.lock.Unlock()
@@ -182,8 +182,7 @@ func (fp *FileProvider) SessionGC() {
 	filepath.Walk(fp.savePath, gcpath)
 }
 
-// SessionAll Get active file session number.
-// it walks save path to count files.
+// SessionAll returns the count of active file sessions by walking the save path.
 func (fp *FileProvider) SessionAll() int {
 	a := &activeSession{}
 	err := filepath.Walk(fp.savePath, func(path string, f os.FileInfo, err error) error {
@@ -196,8 +195,7 @@ func (fp *FileProvider) SessionAll() int {
 	return a.total
 }
 
-// SessionRegenerate Generate new sid for file session.
-// it delete old file and create new file named from new sid.
+// SessionRegenerate creates a new session file for the new sid and copies data from the old one.
 func (fp *FileProvider) SessionRegenerate(oldsid, sid string) (Store, error) {
 	filepder.lock.Lock()
 	defer filepder.lock.Unlock()
@@ -213,7 +211,7 @@ func (fp *FileProvider) SessionRegenerate(oldsid, sid string) (Store, error) {
 	_, err = os.Stat(path.Join(fp.savePath, string(sid[0]), string(sid[1]), sid))
 	var newf *os.File
 	if err == nil {
-		return nil, errors.New("newsid exist")
+		return nil, errors.New("new sid already exists")
 	} else if os.IsNotExist(err) {
 		newf, err = os.Create(path.Join(fp.savePath, string(sid[0]), string(sid[1]), sid))
 	}
@@ -228,7 +226,9 @@ func (fp *FileProvider) SessionRegenerate(oldsid, sid string) (Store, error) {
 	} else {
 		return nil, err
 	}
-	f.Close()
+	if f != nil {
+		defer closer.LogClose(f, log.Printf)
+	}
 	os.Remove(path.Join(fp.savePath, string(oldsid[0]), string(oldsid[1])))
 	os.Chtimes(path.Join(fp.savePath, string(sid[0]), string(sid[1]), sid), time.Now(), time.Now())
 	var kv map[interface{}]interface{}
@@ -248,7 +248,7 @@ func (fp *FileProvider) SessionRegenerate(oldsid, sid string) (Store, error) {
 	return ss, nil
 }
 
-// remove file in save path if expired
+// gcpath removes expired session files during GC.
 func gcpath(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		return err

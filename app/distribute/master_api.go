@@ -7,18 +7,15 @@ import (
 	"github.com/andeya/pholcus/logs"
 )
 
-// 创建主节点API
+// MasterApi creates the master node API.
 func MasterApi(n Distributer) teleport.API {
 	return teleport.API{
-		// 分配任务给客户端
 		"task": &masterTaskHandle{n},
-
-		// 打印接收到的日志
-		"log": &masterLogHandle{},
+		"log":  &masterLogHandle{},
 	}
 }
 
-// 主节点自动分配任务的操作
+// masterTaskHandle assigns tasks to clients.
 type masterTaskHandle struct {
 	Distributer
 }
@@ -28,7 +25,7 @@ func (self *masterTaskHandle) Process(receive *teleport.NetData) *teleport.NetDa
 	return teleport.ReturnData(string(b))
 }
 
-// 主节点自动接收从节点消息并打印的操作
+// masterLogHandle receives and prints log messages from slave nodes.
 type masterLogHandle struct{}
 
 func (*masterLogHandle) Process(receive *teleport.NetData) *teleport.NetData {

@@ -49,16 +49,12 @@ type (
 		GetDownloaderID() int
 	}
 
-	// 默认实现的Request
+	// DefaultRequest is the default Request implementation.
 	DefaultRequest struct {
-		// url (必须填写)
-		Url string
-		// GET POST POST-M HEAD (默认为GET)
-		Method string
-		// http header
-		Header http.Header
-		// 是否使用cookies，在Spider的EnableCookie设置
-		EnableCookie bool
+		Url          string       // required
+		Method       string       // GET POST POST-M HEAD (default GET)
+		Header       http.Header  // http header
+		EnableCookie bool         // set in Spider.EnableCookie
 		// POST values
 		PostData string
 		// dial tcp: i/o timeout
@@ -76,26 +72,23 @@ type (
 		// the download ProxyHost
 		Proxy string
 
-		// 指定下载器ID
-		// 0为Surf高并发下载器，各种控制功能齐全
-		// 1为PhantomJS下载器，特点破防力强，速度慢，低并发
+		// DownloaderID: 0=Surf (high concurrency), 1=PhantomJS (strong anti-block, slow)
 		DownloaderID int
 
-		// 保证prepare只调用一次
-		once sync.Once
+		once sync.Once // ensures prepare is called only once
 	}
 )
 
 const (
-	SurfID      = 0 // Surf下载器标识符
-	PhantomJsID = 1 // PhantomJs下载器标识符
+	SurfID      = 0 // Surf downloader identifier
+	PhantomJsID = 1 // PhantomJS downloader identifier
 	// Deprecated: Use PhantomJsID instead.
 	PhomtomJsID        = PhantomJsID
-	DefaultMethod      = "GET"           // 默认请求方法
-	DefaultDialTimeout = 2 * time.Minute // 默认请求服务器超时
-	DefaultConnTimeout = 2 * time.Minute // 默认下载超时
-	DefaultTryTimes    = 3               // 默认最大下载次数
-	DefaultRetryPause  = 2 * time.Second // 默认重新下载前停顿时长
+	DefaultMethod      = "GET"           // default request method
+	DefaultDialTimeout = 2 * time.Minute // default server request timeout
+	DefaultConnTimeout = 2 * time.Minute // default download timeout
+	DefaultTryTimes    = 3               // default max download attempts
+	DefaultRetryPause  = 2 * time.Second // default pause before retry
 )
 
 func (self *DefaultRequest) prepare() {

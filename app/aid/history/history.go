@@ -9,6 +9,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/andeya/pholcus/app/downloader/request"
+	"github.com/andeya/pholcus/common/closer"
 	"github.com/andeya/pholcus/common/mgo"
 	"github.com/andeya/pholcus/common/mysql"
 	"github.com/andeya/pholcus/common/pool"
@@ -19,20 +20,21 @@ import (
 
 type (
 	Historier interface {
-		ReadSuccess(provider string, inherit bool) // 读取成功记录
-		UpsertSuccess(string) bool                 // 更新或加入成功记录
-		HasSuccess(string) bool                    // 检查是否存在某条成功记录
-		DeleteSuccess(string)                      // 删除成功记录
-		FlushSuccess(provider string)              // I/O输出成功记录，但不清缓存
+		ReadSuccess(provider string, inherit bool) // Read success records
+		UpsertSuccess(string) bool                 // Upsert a success record
+		HasSuccess(string) bool                    // Check if a success record exists
+		DeleteSuccess(string)                      // Delete a success record
+		FlushSuccess(provider string)              // Flush success records to I/O without clearing cache
 
-		ReadFailure(provider string, inherit bool) // 取出失败记录
-		PullFailure() map[string]*request.Request  // 拉取失败记录并清空
-		UpsertFailure(*request.Request) bool       // 更新或加入失败记录
-		DeleteFailure(*request.Request)            // 删除失败记录
-		FlushFailure(provider string)              // I/O输出失败记录，但不清缓存
+		ReadFailure(provider string, inherit bool) // Read failure records
+		PullFailure() map[string]*request.Request  // Pull failure records and clear
+		UpsertFailure(*request.Request) bool       // Upsert a failure record
+		DeleteFailure(*request.Request)            // Delete a failure record
+		FlushFailure(provider string)              // Flush failure records to I/O without clearing cache
 
-		Empty() // 清空缓存，但不输出
+		Empty() // Clear cache without output
 	}
+	// History stores success and failure records for crawl deduplication.
 	History struct {
 		*Success
 		*Failure
@@ -48,6 +50,7 @@ const (
 	FAILURE_FILE   = config.HISTORY_DIR + "/" + FAILURE_SUFFIX
 )
 
+// New creates a Historier for the given spider name and optional subname.
 func New(name string, subName string) Historier {
 	successTabName := SUCCESS_SUFFIX + "__" + name
 	successFileName := SUCCESS_FILE + "__" + name
@@ -74,25 +77,25 @@ func New(name string, subName string) Historier {
 	}
 }
 
-// 读取成功记录
+// ReadSuccess reads success records from the given provider.
 func (self *History) ReadSuccess(provider string, inherit bool) {
 	self.RWMutex.Lock()
 	self.provider = provider
 	self.RWMutex.Unlock()
 
 	if !inherit {
-		// 不继承历史记录时
+		// Not inheriting history
 		self.Success.old = make(map[string]bool)
 		self.Success.new = make(map[string]bool)
 		self.Success.inheritable = false
 		return
 
 	} else if self.Success.inheritable {
-		// 本次与上次均继承历史记录时
+		// Both current and previous runs inherit history
 		return
 
 	} else {
-		// 上次没有继承历史记录，但本次继承时
+		// Previous run did not inherit, but current run does
 		self.Success.old = make(map[string]bool)
 		self.Success.new = make(map[string]bool)
 		self.Success.inheritable = true
@@ -106,7 +109,7 @@ func (self *History) ReadSuccess(provider string, inherit bool) {
 			"Collection": self.Success.tabName,
 		})
 		if err != nil {
-			logs.Log.Error(" *     Fail  [读取成功记录][mgo]: %v\n", err)
+			logs.Log.Error(" *     Fail  [read success record][mgo]: %v\n", err)
 			return
 		}
 		for _, v := range docs["Docs"].([]interface{}) {
@@ -116,7 +119,7 @@ func (self *History) ReadSuccess(provider string, inherit bool) {
 	case "mysql":
 		_, err := mysql.DB()
 		if err != nil {
-			logs.Log.Error(" *     Fail  [读取成功记录][mysql]: %v\n", err)
+			logs.Log.Error(" *     Fail  [read success record][mysql]: %v\n", err)
 			return
 		}
 		table, ok := getReadMysqlTable(self.Success.tabName)
@@ -140,7 +143,7 @@ func (self *History) ReadSuccess(provider string, inherit bool) {
 		if err != nil {
 			return
 		}
-		defer f.Close()
+		defer closer.LogClose(f, logs.Log.Error)
 		b, _ := io.ReadAll(f)
 		if len(b) == 0 {
 			return
@@ -148,27 +151,27 @@ func (self *History) ReadSuccess(provider string, inherit bool) {
 		b[0] = '{'
 		json.Unmarshal(append(b, '}'), &self.Success.old)
 	}
-	logs.Log.Informational(" *     [读取成功记录]: %v 条\n", len(self.Success.old))
+	logs.Log.Informational(" *     [read success record]: %v\n", len(self.Success.old))
 }
 
-// 取出失败记录
+// ReadFailure reads failure records from the given provider.
 func (self *History) ReadFailure(provider string, inherit bool) {
 	self.RWMutex.Lock()
 	self.provider = provider
 	self.RWMutex.Unlock()
 
 	if !inherit {
-		// 不继承历史记录时
+		// Not inheriting history
 		self.Failure.list = make(map[string]*request.Request)
 		self.Failure.inheritable = false
 		return
 
 	} else if self.Failure.inheritable {
-		// 本次与上次均继承历史记录时
+		// Both current and previous runs inherit history
 		return
 
 	} else {
-		// 上次没有继承历史记录，但本次继承时
+		// Previous run did not inherit, but current run does
 		self.Failure.list = make(map[string]*request.Request)
 		self.Failure.inheritable = true
 	}
@@ -176,7 +179,7 @@ func (self *History) ReadFailure(provider string, inherit bool) {
 	switch provider {
 	case "mgo":
 		if mgo.Error() != nil {
-			logs.Log.Error(" *     Fail  [取出失败记录][mgo]: %v\n", mgo.Error())
+			logs.Log.Error(" *     Fail  [read failure record][mgo]: %v\n", mgo.Error())
 			return
 		}
 
@@ -201,7 +204,7 @@ func (self *History) ReadFailure(provider string, inherit bool) {
 	case "mysql":
 		_, err := mysql.DB()
 		if err != nil {
-			logs.Log.Error(" *     Fail  [取出失败记录][mysql]: %v\n", err)
+			logs.Log.Error(" *     Fail  [read failure record][mysql]: %v\n", err)
 			return
 		}
 		table, ok := getReadMysqlTable(self.Failure.tabName)
@@ -230,8 +233,8 @@ func (self *History) ReadFailure(provider string, inherit bool) {
 		if err != nil {
 			return
 		}
+		defer closer.LogClose(f, logs.Log.Error)
 		b, _ := io.ReadAll(f)
-		f.Close()
 
 		if len(b) == 0 {
 			return
@@ -251,10 +254,10 @@ func (self *History) ReadFailure(provider string, inherit bool) {
 		}
 	}
 
-	logs.Log.Informational(" *     [取出失败记录]: %v 条\n", fLen)
+	logs.Log.Informational(" *     [read failure record]: %v\n", fLen)
 }
 
-// 清空缓存，但不输出
+// Empty clears the cache without output.
 func (self *History) Empty() {
 	self.RWMutex.Lock()
 	self.Success.new = make(map[string]bool)
@@ -263,7 +266,7 @@ func (self *History) Empty() {
 	self.RWMutex.Unlock()
 }
 
-// I/O输出成功记录，但不清缓存
+// FlushSuccess flushes success records to I/O without clearing cache.
 func (self *History) FlushSuccess(provider string) {
 	self.RWMutex.Lock()
 	self.provider = provider
@@ -276,11 +279,11 @@ func (self *History) FlushSuccess(provider string) {
 	if err != nil {
 		logs.Log.Error("%v", err)
 	} else {
-		logs.Log.Informational(" *     [添加成功记录]: %v 条\n", sucLen)
+		logs.Log.Informational(" *     [add success record]: %v\n", sucLen)
 	}
 }
 
-// I/O输出失败记录，但不清缓存
+// FlushFailure flushes failure records to I/O without clearing cache.
 func (self *History) FlushFailure(provider string) {
 	self.RWMutex.Lock()
 	self.provider = provider
@@ -293,7 +296,7 @@ func (self *History) FlushFailure(provider string) {
 	if err != nil {
 		logs.Log.Error("%v", err)
 	} else {
-		logs.Log.Informational(" *     [添加失败记录]: %v 条\n", failLen)
+		logs.Log.Informational(" *     [add failure record]: %v\n", failLen)
 	}
 }
 

@@ -21,15 +21,16 @@ import (
 	"github.com/andeya/pholcus/logs"
 )
 
+// Context carries the state for a single crawl request through its lifecycle.
 type Context struct {
-	spider   *Spider           // 规则
-	Request  *request.Request  // 原始请求
-	Response *http.Response    // 响应流，其中URL拷贝自*request.Request
-	text     []byte            // 下载内容Body的字节流格式
-	dom      *goquery.Document // 下载内容Body为html时，可转换为Dom的对象
-	items    []data.DataCell   // 存放以文本形式输出的结果数据
-	files    []data.FileCell   // 存放欲直接输出的文件("Name": string; "Body": io.ReadCloser)
-	err      error             // 错误标记
+	spider   *Spider
+	Request  *request.Request
+	Response *http.Response    // URL is copied from *request.Request
+	text     []byte            // response body as raw bytes
+	dom      *goquery.Document // parsed HTML DOM (lazy-initialized)
+	items    []data.DataCell   // collected text output results
+	files    []data.FileCell   // collected file output results
+	err      error
 	sync.Mutex
 }
 
@@ -44,8 +45,9 @@ var (
 	}
 )
 
-//**************************************** 初始化 *******************************************\\
+// --- Initialization ---
 
+// GetContext retrieves a Context from the pool and binds it to the given spider and request.
 func GetContext(sp *Spider, req *request.Request) *Context {
 	ctx := contextPool.Get().(*Context)
 	ctx.spider = sp
@@ -53,6 +55,7 @@ func GetContext(sp *Spider, req *request.Request) *Context {
 	return ctx
 }
 
+// PutContext resets a Context and returns it to the pool.
 func PutContext(ctx *Context) {
 	if ctx.Response != nil {
 		if ctx.Response.Body != nil {
@@ -70,31 +73,34 @@ func PutContext(ctx *Context) {
 	contextPool.Put(ctx)
 }
 
+// SetResponse binds the HTTP response to this context.
 func (self *Context) SetResponse(resp *http.Response) *Context {
 	self.Response = resp
 	return self
 }
 
-// 标记下载错误。
+// SetError marks a download error on this context.
 func (self *Context) SetError(err error) {
 	self.err = err
 }
 
-//**************************************** Set与Exec类公开方法 *******************************************\\
+// --- Public Set/Exec Methods ---
 
-// 生成并添加请求至队列。
-// Request.Url与Request.Rule必须设置。
-// Request.Spider无需手动设置(由系统自动设置)。
-// Request.EnableCookie在Spider字段中统一设置，规则请求中指定的无效。
-// 以下字段有默认值，可不设置:
-// Request.Method默认为GET方法;
-// Request.DialTimeout默认为常量request.DefaultDialTimeout，小于0时不限制等待响应时长;
-// Request.ConnTimeout默认为常量request.DefaultConnTimeout，小于0时不限制下载超时;
-// Request.TryTimes默认为常量request.DefaultTryTimes，小于0时不限制失败重载次数;
-// Request.RedirectTimes默认不限制重定向次数，小于0时可禁止重定向跳转;
-// Request.RetryPause默认为常量request.DefaultRetryPause;
-// Request.DownloaderID指定下载器ID，0为默认的Surf高并发下载器，功能完备，1为PhantomJS下载器，特点破防力强，速度慢，低并发。
-// 默认自动补填Referer。
+// AddQueue validates and enqueues a new crawl request.
+//
+// Required fields: Request.Url, Request.Rule.
+// Request.Spider is set automatically; Request.EnableCookie is inherited from Spider.
+//
+// Fields with defaults (may be omitted):
+//   - Method: GET
+//   - DialTimeout: request.DefaultDialTimeout (negative = unlimited)
+//   - ConnTimeout: request.DefaultConnTimeout (negative = unlimited)
+//   - TryTimes: request.DefaultTryTimes (negative = unlimited retries)
+//   - RedirectTimes: unlimited by default (negative = disable redirects)
+//   - RetryPause: request.DefaultRetryPause
+//   - DownloaderID: 0 = Surf (fast, full-featured), 1 = PhantomJS (slow, JS-capable)
+//
+// Referer is auto-filled from the current response URL if not set.
 func (self *Context) AddQueue(req *request.Request) *Context {
 	if self.spider.tryStop() != nil {
 		return self
@@ -110,7 +116,6 @@ func (self *Context) AddQueue(req *request.Request) *Context {
 		return self
 	}
 
-	// 自动设置Referer
 	if req.GetReferer() == "" && self.Response != nil {
 		req.SetReferer(self.GetUrl())
 	}
@@ -119,7 +124,7 @@ func (self *Context) AddQueue(req *request.Request) *Context {
 	return self
 }
 
-// 用于动态规则添加请求。
+// JsAddQueue adds a request from a dynamic (JavaScript) rule definition.
 func (self *Context) JsAddQueue(jreq map[string]interface{}) *Context {
 	if self.spider.tryStop() != nil {
 		return self
@@ -188,14 +193,15 @@ func (self *Context) JsAddQueue(jreq map[string]interface{}) *Context {
 	return self
 }
 
-// 输出文本结果。
-// item类型为map[int]interface{}时，根据ruleName现有的ItemFields字段进行输出，
-// item类型为map[string]interface{}时，ruleName不存在的ItemFields字段将被自动添加，
-// ruleName为空时默认当前规则。
+// Output collects a text result item.
+//
+// When item is map[int]interface{}, fields are mapped using the existing ItemFields of ruleName.
+// When item is map[string]interface{}, missing ItemFields are auto-added.
+// An empty ruleName defaults to the current rule.
 func (self *Context) Output(item interface{}, ruleName ...string) {
 	_ruleName, rule, found := self.getRule(ruleName...)
 	if !found {
-		logs.Log.Error("蜘蛛 %s 调用Output()时，指定的规则名不存在！", self.spider.GetName())
+		logs.Log.Error("spider %s: Output() called with non-existent rule name", self.spider.GetName())
 		return
 	}
 	var _item map[string]interface{}
@@ -222,8 +228,8 @@ func (self *Context) Output(item interface{}, ruleName ...string) {
 	self.Unlock()
 }
 
-// 输出文件。
-// nameOrExt指定文件名或仅扩展名，为空时默认保持原文件名（包括扩展名）不变。
+// FileOutput collects a file result from the response body.
+// nameOrExt optionally specifies a file name or extension; empty keeps the original.
 func (self *Context) FileOutput(nameOrExt ...string) {
 	if self.Response == nil || self.Response.Body == nil {
 		logs.Log.Warning(" *     [FileOutput]: Response or Body is nil for %s", self.GetUrl())
@@ -236,7 +242,6 @@ func (self *Context) FileOutput(nameOrExt ...string) {
 		return
 	}
 
-	// 智能设置完整文件名
 	_, s := path.Split(self.GetUrl())
 	n := strings.Split(s, "?")[0]
 
@@ -259,18 +264,17 @@ func (self *Context) FileOutput(nameOrExt ...string) {
 		ext = ".html"
 	}
 
-	// 保存到文件临时队列
 	self.Lock()
 	self.files = append(self.files, data.GetFileCell(self.GetRuleName(), baseName+ext, bytes))
 	self.Unlock()
 }
 
-// 生成文本结果。
-// 用ruleName指定匹配的ItemFields字段，为空时默认当前规则。
+// CreatItem builds a text result map keyed by field names using the ItemFields of ruleName.
+// An empty ruleName defaults to the current rule.
 func (self *Context) CreatItem(item map[int]interface{}, ruleName ...string) map[string]interface{} {
 	_, rule, found := self.getRule(ruleName...)
 	if !found {
-		logs.Log.Error("蜘蛛 %s 调用CreatItem()时，指定的规则名不存在！", self.spider.GetName())
+		logs.Log.Error("spider %s: CreatItem() called with non-existent rule name", self.spider.GetName())
 		return nil
 	}
 
@@ -282,7 +286,7 @@ func (self *Context) CreatItem(item map[int]interface{}, ruleName ...string) map
 	return item2
 }
 
-// 在请求中保存临时数据。
+// SetTemp stores temporary data in the current request.
 func (self *Context) SetTemp(key string, value interface{}) *Context {
 	self.Request.SetTemp(key, value)
 	return self
@@ -298,20 +302,20 @@ func (self *Context) SetReferer(referer string) *Context {
 	return self
 }
 
-// 为指定Rule动态追加结果字段名，并获取索引位置，
-// 已存在时获取原来索引位置，
-// 若ruleName为空，默认为当前规则。
+// UpsertItemField adds a result field name to the given rule and returns its index.
+// If the field already exists, the existing index is returned.
+// An empty ruleName defaults to the current rule.
 func (self *Context) UpsertItemField(field string, ruleName ...string) (index int) {
 	_, rule, found := self.getRule(ruleName...)
 	if !found {
-		logs.Log.Error("蜘蛛 %s 调用UpsertItemField()时，指定的规则名不存在！", self.spider.GetName())
+		logs.Log.Error("spider %s: UpsertItemField() called with non-existent rule name", self.spider.GetName())
 		return
 	}
 	return self.spider.UpsertItemField(rule, field)
 }
 
-// 调用指定Rule下辅助函数AidFunc()。
-// 用ruleName指定匹配的AidFunc，为空时默认当前规则。
+// Aid invokes the AidFunc of the specified rule.
+// An empty ruleName defaults to the current rule.
 func (self *Context) Aid(aid map[string]interface{}, ruleName ...string) interface{} {
 	if self.spider.tryStop() != nil {
 		return nil
@@ -320,21 +324,21 @@ func (self *Context) Aid(aid map[string]interface{}, ruleName ...string) interfa
 	_, rule, found := self.getRule(ruleName...)
 	if !found {
 		if len(ruleName) > 0 {
-			logs.Log.Error("调用蜘蛛 %s 不存在的规则: %s", self.spider.GetName(), ruleName[0])
+			logs.Log.Error("spider %s: Aid() called with non-existent rule: %s", self.spider.GetName(), ruleName[0])
 		} else {
-			logs.Log.Error("调用蜘蛛 %s 的Aid()时未指定的规则名", self.spider.GetName())
+			logs.Log.Error("spider %s: Aid() called without specifying a rule name", self.spider.GetName())
 		}
 		return nil
 	}
 	if rule.AidFunc == nil {
-		logs.Log.Error("蜘蛛 %s 的规则 %s 未定义AidFunc", self.spider.GetName(), ruleName[0])
+		logs.Log.Error("spider %s: rule %s has no AidFunc defined", self.spider.GetName(), ruleName[0])
 		return nil
 	}
 	return rule.AidFunc(self, aid)
 }
 
-// 解析响应流。
-// 用ruleName指定匹配的ParseFunc字段，为空时默认调用Root()。
+// Parse dispatches the response to the ParseFunc of the specified rule.
+// An empty ruleName defaults to Root().
 func (self *Context) Parse(ruleName ...string) *Context {
 	if self.spider.tryStop() != nil {
 		return self
@@ -349,46 +353,45 @@ func (self *Context) Parse(ruleName ...string) *Context {
 		return self
 	}
 	if rule.ParseFunc == nil {
-		logs.Log.Error("蜘蛛 %s 的规则 %s 未定义ParseFunc", self.spider.GetName(), ruleName[0])
+		logs.Log.Error("spider %s: rule %s has no ParseFunc defined", self.spider.GetName(), ruleName[0])
 		return self
 	}
 	rule.ParseFunc(self)
 	return self
 }
 
-// 设置自定义配置。
+// SetKeyin sets the custom keyword/configuration input.
 func (self *Context) SetKeyin(keyin string) *Context {
 	self.spider.SetKeyin(keyin)
 	return self
 }
 
-// 设置采集上限。
+// SetLimit sets the maximum number of items to crawl.
 func (self *Context) SetLimit(max int) *Context {
 	self.spider.SetLimit(int64(max))
 	return self
 }
 
-// 自定义暂停区间(随机: Pausetime/2 ~ Pausetime*2)，优先级高于外部传参。
-// 当且仅当runtime[0]为true时可覆盖现有值。
+// SetPausetime sets a custom pause interval (randomized: pause/2 ~ pause*2).
+// Overrides the externally configured value. Only overwrites an existing value when runtime[0] is true.
 func (self *Context) SetPausetime(pause int64, runtime ...bool) *Context {
 	self.spider.SetPausetime(pause, runtime...)
 	return self
 }
 
-// 设置定时器，
-// @id为定时器唯一标识，
-// @bell==nil时为倒计时器，此时@tol为睡眠时长，
-// @bell!=nil时为闹铃，此时@tol用于指定醒来时刻（从now起遇到的第tol个bell）。
+// SetTimer configures a timer identified by id.
+// When bell is nil, tol is a sleep duration (countdown timer).
+// When bell is non-nil, tol specifies the wake-up point (the tol-th bell occurrence from now).
 func (self *Context) SetTimer(id string, tol time.Duration, bell *Bell) bool {
 	return self.spider.SetTimer(id, tol, bell)
 }
 
-// 启动定时器，并获取定时器是否可以继续使用。
+// RunTimer starts the timer and reports whether it can continue to be used.
 func (self *Context) RunTimer(id string) bool {
 	return self.spider.RunTimer(id)
 }
 
-// 重置下载的文本内容，
+// ResetText replaces the downloaded text content and invalidates the DOM cache.
 func (self *Context) ResetText(body string) *Context {
 	x := (*[2]uintptr)(unsafe.Pointer(&body))
 	h := [3]uintptr{x[0], x[1], x[1]}
@@ -397,9 +400,9 @@ func (self *Context) ResetText(body string) *Context {
 	return self
 }
 
-//**************************************** Get 类公开方法 *******************************************\\
+// --- Public Get Methods ---
 
-// 获取下载错误。
+// GetError returns the download error, or the spider's stop error if stopping.
 func (self *Context) GetError() error {
 	if err := self.spider.tryStop(); err != nil {
 		return err
@@ -407,22 +410,22 @@ func (self *Context) GetError() error {
 	return self.err
 }
 
-// 获取日志接口实例。
+// Log returns the global logger instance.
 func (*Context) Log() logs.Logs {
 	return logs.Log
 }
 
-// 获取蜘蛛名称。
+// GetSpider returns the spider bound to this context.
 func (self *Context) GetSpider() *Spider {
 	return self.spider
 }
 
-// 获取响应流。
+// GetResponse returns the HTTP response.
 func (self *Context) GetResponse() *http.Response {
 	return self.Response
 }
 
-// 获取响应状态码。
+// GetStatusCode returns the HTTP response status code, or 0 if no response.
 func (self *Context) GetStatusCode() int {
 	if self.Response == nil {
 		return 0
@@ -430,48 +433,49 @@ func (self *Context) GetStatusCode() int {
 	return self.Response.StatusCode
 }
 
-// 获取原始请求。
+// GetRequest returns the original request.
 func (self *Context) GetRequest() *request.Request {
 	return self.Request
 }
 
-// 获得一个原始请求的副本。
+// CopyRequest returns a deep copy of the original request.
 func (self *Context) CopyRequest() *request.Request {
 	return self.Request.Copy()
 }
 
-// 获取结果字段名列表。
+// GetItemFields returns the result field name list for the given rule.
 func (self *Context) GetItemFields(ruleName ...string) []string {
 	_, rule, found := self.getRule(ruleName...)
 	if !found {
-		logs.Log.Error("蜘蛛 %s 调用GetItemFields()时，指定的规则名不存在！", self.spider.GetName())
+		logs.Log.Error("spider %s: GetItemFields() called with non-existent rule name", self.spider.GetName())
 		return nil
 	}
 	return self.spider.GetItemFields(rule)
 }
 
-// 由索引下标获取结果字段名，不存在时获取空字符串，
-// 若ruleName为空，默认为当前规则。
+// GetItemField returns the field name at the given index, or "" if not found.
+// An empty ruleName defaults to the current rule.
 func (self *Context) GetItemField(index int, ruleName ...string) (field string) {
 	_, rule, found := self.getRule(ruleName...)
 	if !found {
-		logs.Log.Error("蜘蛛 %s 调用GetItemField()时，指定的规则名不存在！", self.spider.GetName())
+		logs.Log.Error("spider %s: GetItemField() called with non-existent rule name", self.spider.GetName())
 		return
 	}
 	return self.spider.GetItemField(rule, index)
 }
 
-// 由结果字段名获取索引下标，不存在时索引为-1，
-// 若ruleName为空，默认为当前规则。
+// GetItemFieldIndex returns the index of the given field name, or -1 if not found.
+// An empty ruleName defaults to the current rule.
 func (self *Context) GetItemFieldIndex(field string, ruleName ...string) (index int) {
 	_, rule, found := self.getRule(ruleName...)
 	if !found {
-		logs.Log.Error("蜘蛛 %s 调用GetItemField()时，指定的规则名不存在！", self.spider.GetName())
+		logs.Log.Error("spider %s: GetItemFieldIndex() called with non-existent rule name", self.spider.GetName())
 		return
 	}
 	return self.spider.GetItemFieldIndex(rule, field)
 }
 
+// PullItems drains and returns all collected data items, resetting the internal buffer.
 func (self *Context) PullItems() (ds []data.DataCell) {
 	self.Lock()
 	ds = self.items
@@ -480,6 +484,7 @@ func (self *Context) PullItems() (ds []data.DataCell) {
 	return
 }
 
+// PullFiles drains and returns all collected file results, resetting the internal buffer.
 func (self *Context) PullFiles() (fs []data.FileCell) {
 	self.Lock()
 	fs = self.files
@@ -488,48 +493,48 @@ func (self *Context) PullFiles() (fs []data.FileCell) {
 	return
 }
 
-// 获取自定义配置。
+// GetKeyin returns the custom keyword/configuration input.
 func (self *Context) GetKeyin() string {
 	return self.spider.GetKeyin()
 }
 
-// 获取采集上限。
+// GetLimit returns the maximum number of items to crawl.
 func (self *Context) GetLimit() int {
 	return int(self.spider.GetLimit())
 }
 
-// 获取蜘蛛名。
+// GetName returns the spider name.
 func (self *Context) GetName() string {
 	return self.spider.GetName()
 }
 
-// 获取规则树。
+// GetRules returns the full rule map.
 func (self *Context) GetRules() map[string]*Rule {
 	return self.spider.GetRules()
 }
 
-// 获取指定规则。
+// GetRule returns the rule with the given name.
 func (self *Context) GetRule(ruleName string) (*Rule, bool) {
 	return self.spider.GetRule(ruleName)
 }
 
-// 获取当前规则名。
+// GetRuleName returns the current rule name from the request.
 func (self *Context) GetRuleName() string {
 	return self.Request.GetRuleName()
 }
 
-// 获取请求中临时缓存数据
-// defaultValue 不能为 interface{}(nil)
+// GetTemp retrieves temporary data from the request by key.
+// defaultValue must not be a nil interface{}.
 func (self *Context) GetTemp(key string, defaultValue interface{}) interface{} {
 	return self.Request.GetTemp(key, defaultValue)
 }
 
-// 获取请求中全部缓存数据
+// GetTemps returns all temporary data from the request.
 func (self *Context) GetTemps() request.Temp {
 	return self.Request.GetTemps()
 }
 
-// 获得一个请求的缓存数据副本。
+// CopyTemps returns a shallow copy of the request's temporary data.
 func (self *Context) CopyTemps() request.Temp {
 	temps := make(request.Temp)
 	for k, v := range self.Request.GetTemps() {
@@ -538,15 +543,17 @@ func (self *Context) CopyTemps() request.Temp {
 	return temps
 }
 
-// 从原始请求获取Url，从而保证请求前后的Url完全相等，且中文未被编码。
+// GetUrl returns the URL from the original request, preserving the unencoded form.
 func (self *Context) GetUrl() string {
 	return self.Request.Url
 }
 
+// GetMethod returns the HTTP method of the request.
 func (self *Context) GetMethod() string {
 	return self.Request.GetMethod()
 }
 
+// GetHost returns the host from the response URL, or "" if unavailable.
 func (self *Context) GetHost() string {
 	if self.Response == nil || self.Response.Request == nil || self.Response.Request.URL == nil {
 		return ""
@@ -554,7 +561,7 @@ func (self *Context) GetHost() string {
 	return self.Response.Request.URL.Host
 }
 
-// 获取响应头信息。
+// GetHeader returns the response headers.
 func (self *Context) GetHeader() http.Header {
 	if self.Response == nil {
 		return http.Header{}
@@ -562,7 +569,7 @@ func (self *Context) GetHeader() http.Header {
 	return self.Response.Header
 }
 
-// 获取请求头信息。
+// GetRequestHeader returns the request headers from the actual HTTP request made.
 func (self *Context) GetRequestHeader() http.Header {
 	if self.Response == nil || self.Response.Request == nil {
 		return http.Header{}
@@ -570,6 +577,7 @@ func (self *Context) GetRequestHeader() http.Header {
 	return self.Response.Request.Header
 }
 
+// GetReferer returns the Referer header from the actual HTTP request made.
 func (self *Context) GetReferer() string {
 	if self.Response == nil || self.Response.Request == nil {
 		return ""
@@ -577,7 +585,7 @@ func (self *Context) GetReferer() string {
 	return self.Response.Request.Header.Get("Referer")
 }
 
-// 获取响应的Cookie。
+// GetCookie returns the Set-Cookie header from the response.
 func (self *Context) GetCookie() string {
 	if self.Response == nil {
 		return ""
@@ -585,7 +593,7 @@ func (self *Context) GetCookie() string {
 	return self.Response.Header.Get("Set-Cookie")
 }
 
-// GetHtmlParser returns goquery object binded to target crawl result.
+// GetDom returns the parsed HTML DOM, initializing it lazily from the response body.
 func (self *Context) GetDom() *goquery.Document {
 	if self.dom == nil {
 		if self.Response == nil {
@@ -597,7 +605,7 @@ func (self *Context) GetDom() *goquery.Document {
 	return self.dom
 }
 
-// GetBodyStr returns plain string crawled.
+// GetText returns the response body as a UTF-8 string, initializing it lazily.
 func (self *Context) GetText() string {
 	if self.text == nil {
 		if self.Response == nil {
@@ -609,9 +617,9 @@ func (self *Context) GetText() string {
 	return util.Bytes2String(self.text)
 }
 
-//**************************************** 私有方法 *******************************************\\
+// --- Private Methods ---
 
-// 获取规则。
+// getRule resolves a rule by name, defaulting to the current request's rule.
 func (self *Context) getRule(ruleName ...string) (name string, rule *Rule, found bool) {
 	if len(ruleName) == 0 {
 		if self.Response == nil {
@@ -625,7 +633,7 @@ func (self *Context) getRule(ruleName ...string) (name string, rule *Rule, found
 	return
 }
 
-// GetHtmlParser returns goquery object binded to target crawl result.
+// initDom parses the text body into a goquery Document.
 func (self *Context) initDom() *goquery.Document {
 	if self.text == nil {
 		self.initText()
@@ -638,71 +646,69 @@ func (self *Context) initDom() *goquery.Document {
 	return self.dom
 }
 
-// GetBodyStr returns plain string crawled.
+// initText reads the response body and converts it to UTF-8 if needed.
 func (self *Context) initText() {
-	var err error
-
-	// 采用surf内核下载时，尝试自动转码
-	if self.Request.DownloaderID == request.SURF_ID {
-		var contentType, pageEncode string
-		// 优先从响应头读取编码类型
-		contentType = self.Response.Header.Get("Content-Type")
-		if _, params, err := mime.ParseMediaType(contentType); err == nil {
-			if cs, ok := params["charset"]; ok {
-				pageEncode = strings.ToLower(strings.TrimSpace(cs))
-			}
-		}
-		// 响应头未指定编码类型时，从请求头读取
-		if len(pageEncode) == 0 {
-			contentType = self.Request.Header.Get("Content-Type")
-			if _, params, err := mime.ParseMediaType(contentType); err == nil {
-				if cs, ok := params["charset"]; ok {
-					pageEncode = strings.ToLower(strings.TrimSpace(cs))
-				}
-			}
-		}
-
-		switch pageEncode {
-		// 不做转码处理
-		case "utf8", "utf-8", "unicode-1-1-utf-8":
-		default:
-			// 指定了编码类型，但不是utf8时，自动转码为utf8
-			// get converter to utf-8
-			// Charset auto determine. Use golang.org/x/net/html/charset. Get response body and change it to utf-8
-			var destReader io.Reader
-
-			if len(pageEncode) == 0 {
-				destReader, err = charset.NewReader(self.Response.Body, "")
-			} else {
-				destReader, err = charset.NewReaderLabel(pageEncode, self.Response.Body)
-			}
-
-			if err == nil {
-				self.text, err = io.ReadAll(destReader)
-				if err == nil {
-					self.Response.Body.Close()
-					return
-				} else {
-					logs.Log.Warning(" *     [convert][%v]: %v (ignore transcoding)\n", self.GetUrl(), err)
-				}
-			} else {
-				logs.Log.Warning(" *     [convert][%v]: %v (ignore transcoding)\n", self.GetUrl(), err)
-			}
-		}
-	}
-
-	// 不做转码处理
-	self.text, err = io.ReadAll(self.Response.Body)
+	body, err := io.ReadAll(self.Response.Body)
 	self.Response.Body.Close()
 	if err != nil {
 		panic(err.Error())
 	}
+
+	responseCT := self.Response.Header.Get("Content-Type")
+	requestCT := self.Request.Header.Get("Content-Type")
+	pageEncode := detectCharset(responseCT, requestCT)
+
+	if self.Request.DownloaderID == request.SURF_ID && !isUTF8(pageEncode) {
+		converted, convErr := convertEncoding(body, pageEncode)
+		if convErr == nil {
+			self.text = converted
+			return
+		}
+		logs.Log.Warning(" *     [convert][%v]: %v (ignore transcoding)\n", self.GetUrl(), convErr)
+	}
+
+	self.text = body
 }
 
-/**
- * 编码类型参考
- * 不区分大小写
- *var nameMap = map[string]htmlEncoding{
+// detectCharset extracts charset from Content-Type headers (response first, then request).
+func detectCharset(responseContentType, requestContentType string) string {
+	for _, ct := range []string{responseContentType, requestContentType} {
+		if _, params, err := mime.ParseMediaType(ct); err == nil {
+			if cs, ok := params["charset"]; ok {
+				return strings.ToLower(strings.TrimSpace(cs))
+			}
+		}
+	}
+	return ""
+}
+
+func isUTF8(charset string) bool {
+	switch charset {
+	case "utf8", "utf-8", "unicode-1-1-utf-8":
+		return true
+	}
+	return false
+}
+
+// convertEncoding converts body from the given charset to UTF-8.
+func convertEncoding(body []byte, charsetLabel string) ([]byte, error) {
+	var destReader io.Reader
+	var err error
+	r := bytes.NewReader(body)
+	if charsetLabel == "" {
+		destReader, err = charset.NewReader(r, "")
+	} else {
+		destReader, err = charset.NewReaderLabel(charsetLabel, r)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return io.ReadAll(destReader)
+}
+
+/*
+ * Charset reference (case-insensitive).
+ * var nameMap = map[string]htmlEncoding{
 	"unicode-1-1-utf-8":   utf8,
 	"utf-8":               utf8,
 	"utf8":                utf8,

@@ -20,6 +20,7 @@ import (
 	"github.com/andeya/pholcus/logs"
 )
 
+// Proxy manages a pool of proxy IPs with online filtering and per-host sorting.
 type Proxy struct {
 	ipRegexp           *regexp.Regexp
 	proxyIPTypeRegexp  *regexp.Regexp
@@ -39,10 +40,11 @@ const (
 	CONN_TIMEOUT = 4 //4s
 	DAIL_TIMEOUT = 4 //4s
 	TRY_TIMES    = 3
-	// IP测速的最大并发量
+	// Max concurrency for IP speed testing
 	MAX_THREAD_NUM = 1000
 )
 
+// New creates and starts a Proxy that loads and filters proxy IPs from config.
 func New() *Proxy {
 	p := &Proxy{
 		ipRegexp:           regexp.MustCompile(`[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+`),
@@ -58,12 +60,12 @@ func New() *Proxy {
 	return p
 }
 
-// 代理IP数量
+// Count returns the number of online proxy IPs.
 func (self *Proxy) Count() int32 {
 	return self.online
 }
 
-// 更新代理IP列表
+// Update refreshes the proxy IP list.
 func (self *Proxy) Update() *Proxy {
 	f, err := os.Open(config.PROXY)
 	if err != nil {
@@ -86,16 +88,16 @@ func (self *Proxy) Update() *Proxy {
 		self.all[proxy] = false
 	}
 
-	log.Printf(" *     读取代理IP: %v 条\n", len(self.all))
+	log.Printf(" *     Read proxy IPs: %v\n", len(self.all))
 
 	self.findOnline()
 
 	return self
 }
 
-// 筛选在线的代理IP
+// findOnline filters proxy IPs that are online.
 func (self *Proxy) findOnline() *Proxy {
-	log.Printf(" *     正在筛选在线的代理IP……")
+	log.Printf(" *     Filtering online proxy IPs...")
 	self.online = 0
 	for proxy := range self.all {
 		self.threadPool <- true
@@ -114,12 +116,12 @@ func (self *Proxy) findOnline() *Proxy {
 		time.Sleep(0.2e9)
 	}
 	self.online = atomic.LoadInt32(&self.online)
-	log.Printf(" *     在线代理IP筛选完成，共计：%v 个\n", self.online)
+	log.Printf(" *     Online proxy IP filtering complete, total: %v\n", self.online)
 
 	return self
 }
 
-// 更新继时器
+// UpdateTicker updates the ticker.
 func (self *Proxy) UpdateTicker(tickMinute int64) {
 	self.tickMinute = tickMinute
 	self.ticker = time.NewTicker(time.Duration(self.tickMinute) * time.Minute)
@@ -129,14 +131,14 @@ func (self *Proxy) UpdateTicker(tickMinute int64) {
 	}
 }
 
-// 获取本次循环中未使用的代理IP及其响应时长
+// GetOne returns an unused proxy IP for this cycle and its response time.
 func (self *Proxy) GetOne(u string) (curProxy string) {
 	if self.online == 0 {
 		return
 	}
 	u2, _ := url.Parse(u)
 	if u2.Host == "" {
-		logs.Log.Informational(" *     [%v]设置代理IP失败，目标url不正确\n", u)
+		logs.Log.Informational(" *     [%v] Failed to set proxy IP, invalid target URL\n", u)
 		return
 	}
 	var key = u2.Host
@@ -174,12 +176,12 @@ func (self *Proxy) GetOne(u string) (curProxy string) {
 		}
 	}
 	if !ok {
-		logs.Log.Informational(" *     [%v]设置代理IP失败，没有可用的代理IP\n", key)
+		logs.Log.Informational(" *     [%v] Failed to set proxy IP, no available proxy IPs\n", key)
 		return
 	}
 	curProxy = proxyForHost.proxys[proxyForHost.curIndex]
 	if proxyForHost.isEcho {
-		logs.Log.Informational(" *     设置代理IP为 [%v](%v)\n",
+		logs.Log.Informational(" *     Set proxy IP to [%v](%v)\n",
 			curProxy,
 			proxyForHost.timedelay[proxyForHost.curIndex],
 		)
@@ -188,9 +190,9 @@ func (self *Proxy) GetOne(u string) (curProxy string) {
 	return
 }
 
-// 测试并排序
+// testAndSort tests and sorts proxy IPs for the given host.
 func (self *Proxy) testAndSort(key string, testHost string) (*ProxyForHost, bool) {
-	logs.Log.Informational(" *     [%v]正在测试与排序代理IP……", key)
+	logs.Log.Informational(" *     [%v] Testing and sorting proxy IPs...", key)
 	proxyForHost := self.usable[key]
 	proxyForHost.proxys = []string{}
 	proxyForHost.timedelay = []time.Duration{}
@@ -216,14 +218,14 @@ func (self *Proxy) testAndSort(key string, testHost string) (*ProxyForHost, bool
 	}
 	if proxyForHost.Len() > 0 {
 		sort.Sort(proxyForHost)
-		logs.Log.Informational(" *     [%v]测试与排序代理IP完成，可用：%v 个\n", key, proxyForHost.Len())
+		logs.Log.Informational(" *     [%v] Testing and sorting proxy IPs complete, available: %v\n", key, proxyForHost.Len())
 		return proxyForHost, true
 	}
-	logs.Log.Informational(" *     [%v]测试与排序代理IP完成，没有可用的代理IP\n", key)
+	logs.Log.Informational(" *     [%v] Testing and sorting proxy IPs complete, no available proxy IPs\n", key)
 	return proxyForHost, false
 }
 
-// 测试代理ip可用性
+// findUsable tests proxy IP availability.
 func (self *Proxy) findUsable(proxy string, testHost string) (alive bool, timedelay time.Duration) {
 	t0 := time.Now()
 	req := &request.Request{

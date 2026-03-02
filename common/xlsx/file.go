@@ -183,7 +183,7 @@ func (f *File) makeWorkbook() xlsxWorkbook {
 // declarations in a single element of a document.  This function is a
 // horrible hack to fix that after the XML marshalling is completed.
 func replaceRelationshipsNameSpace(workbookMarshal string) string {
-	newWorkbook := strings.Replace(workbookMarshal, `xmlns:relationships="http://schemas.openxmlformats.org/officeDocument/2006/relationships" relationships:id`, `r:id`, -1)
+	newWorkbook := strings.ReplaceAll(workbookMarshal, `xmlns:relationships="http://schemas.openxmlformats.org/officeDocument/2006/relationships" relationships:id`, `r:id`)
 	// Dirty hack to fix issues #63 and #91; encoding/xml currently
 	// "doesn't allow for additional namespaces to be defined in the
 	// root element of the document," as described by @tealeg in the

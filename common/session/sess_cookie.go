@@ -25,22 +25,21 @@ import (
 
 var cookiepder = &CookieProvider{}
 
-// CookieSessionStore Cookie SessionStore
+// CookieSessionStore stores session data in cookies.
 type CookieSessionStore struct {
 	sid    string
 	values map[interface{}]interface{} // session data
 	lock   sync.RWMutex
 }
 
-// Set value to cookie session.
-// the value are encoded as gob with hash block string.
+// Set stores a value in the cookie session (encoded as gob with hash).
 func (st *CookieSessionStore) Set(key, value interface{}) {
 	st.lock.Lock()
 	defer st.lock.Unlock()
 	st.values[key] = value
 }
 
-// Get value from cookie session
+// Get retrieves a value from the cookie session.
 func (st *CookieSessionStore) Get(key interface{}) interface{} {
 	st.lock.RLock()
 	defer st.lock.RUnlock()
@@ -50,26 +49,26 @@ func (st *CookieSessionStore) Get(key interface{}) interface{} {
 	return nil
 }
 
-// Delete value in cookie session
+// Delete removes a value from the cookie session.
 func (st *CookieSessionStore) Delete(key interface{}) {
 	st.lock.Lock()
 	defer st.lock.Unlock()
 	delete(st.values, key)
 }
 
-// Flush Clean all values in cookie session
+// Flush clears all values in the cookie session.
 func (st *CookieSessionStore) Flush() {
 	st.lock.Lock()
 	defer st.lock.Unlock()
 	st.values = make(map[interface{}]interface{})
 }
 
-// SessionID Return id of this cookie session
+// SessionID returns the id of this cookie session.
 func (st *CookieSessionStore) SessionID() string {
 	return st.sid
 }
 
-// SessionRelease Write cookie session to http response cookie
+// SessionRelease writes the cookie session to the HTTP response.
 func (st *CookieSessionStore) SessionRelease(w http.ResponseWriter) {
 	str, err := encodeCookie(cookiepder.block,
 		cookiepder.config.SecurityKey,
@@ -97,7 +96,7 @@ type cookieConfig struct {
 	Maxage       int    `json:"maxage"`
 }
 
-// CookieProvider Cookie session provider
+// CookieProvider provides cookie-based session storage.
 type CookieProvider struct {
 	maxlifetime int64
 	config      *cookieConfig
@@ -106,15 +105,9 @@ type CookieProvider struct {
 
 var CookieName string
 
-// SessionInit Init cookie session provider with max lifetime and config json.
-// maxlifetime is ignored.
-// json config:
-//
-//	securityKey - hash string
-//	blockKey - gob encode hash string. it's saved as aes crypto.
-//	securityName - recognized name in encoded cookie string
-//	cookieName - cookie name
-//	maxage - cookie max life time.
+// SessionInit initializes the cookie session provider.
+// maxlifetime is ignored. JSON config: securityKey (hash string), blockKey (AES key for gob encoding),
+// securityName (name in encoded cookie), cookieName, maxage (cookie max lifetime).
 func (pder *CookieProvider) SessionInit(maxlifetime int64, config string) error {
 	pder.config = &cookieConfig{}
 	err := json.Unmarshal([]byte(config), pder.config)
@@ -135,8 +128,7 @@ func (pder *CookieProvider) SessionInit(maxlifetime int64, config string) error 
 	return nil
 }
 
-// SessionRead Get SessionStore in cooke.
-// decode cooke string to map and put into SessionStore with sid.
+// SessionRead decodes the cookie string to a map and returns a SessionStore with the given sid.
 func (pder *CookieProvider) SessionRead(sid string) (Store, error) {
 	maps, _ := decodeCookie(pder.block,
 		pder.config.SecurityKey,
@@ -149,32 +141,32 @@ func (pder *CookieProvider) SessionRead(sid string) (Store, error) {
 	return rs, nil
 }
 
-// SessionExist Cookie session is always existed
+// SessionExist returns true; cookie session is always considered to exist.
 func (pder *CookieProvider) SessionExist(sid string) bool {
 	return true
 }
 
-// SessionRegenerate Implement method, no used.
+// SessionRegenerate implements the Provider interface; no-op for cookie.
 func (pder *CookieProvider) SessionRegenerate(oldsid, sid string) (Store, error) {
 	return nil, nil
 }
 
-// SessionDestroy Implement method, no used.
+// SessionDestroy implements the Provider interface; no-op for cookie.
 func (pder *CookieProvider) SessionDestroy(sid string) error {
 	return nil
 }
 
-// SessionGC Implement method, no used.
+// SessionGC implements the Provider interface; no-op for cookie.
 func (pder *CookieProvider) SessionGC() {
 	return
 }
 
-// SessionAll Implement method, return 0.
+// SessionAll implements the Provider interface; returns 0 for cookie.
 func (pder *CookieProvider) SessionAll() int {
 	return 0
 }
 
-// SessionUpdate Implement method, no used.
+// SessionUpdate implements the Provider interface; no-op for cookie.
 func (pder *CookieProvider) SessionUpdate(sid string) error {
 	return nil
 }

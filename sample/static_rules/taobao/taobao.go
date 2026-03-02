@@ -97,9 +97,9 @@ var Taobao = &spider.Spider{
 			"列表页数": {
 				ParseFunc: func(ctx *spider.Context) {
 					json := ctx.GetText()
-					re, _ := regexp.Compile(`(?U)"totalPage":"[\d]+",`)
+					re := regexp.MustCompile(`(?U)"totalPage":"[\d]+",`)
 					total := re.FindString(json)
-					re, _ = regexp.Compile(`[\d]+`)
+					re = regexp.MustCompile(`[\d]+`)
 					total = re.FindString(total)
 					total = strings.Trim(total, " \t\n")
 					totalPage, _ := strconv.Atoi(total)
@@ -185,7 +185,7 @@ var Taobao = &spider.Spider{
 							native := s.Text()
 							slice := strings.Split(native, ":&nbsp;")
 							//空格替换为分隔号“|”
-							slice[1] = strings.Replace(slice[1], "&nbsp;", "&#124;", -1)
+							slice[1] = strings.ReplaceAll(slice[1], "&nbsp;", "&#124;")
 							detail[slice[0]] = spidercommon.UnicodeToUTF8(slice[1])
 						})
 

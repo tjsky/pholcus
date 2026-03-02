@@ -10,11 +10,12 @@ import (
 	"strconv"
 )
 
-// returns the current implementation version
+// Version returns the current implementation version.
 func Version() string {
 	return "0.5.0-alpha"
 }
 
+// Json represents a mutable JSON object for parsing and querying.
 type Json struct {
 	data interface{}
 }

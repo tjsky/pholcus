@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"runtime/debug"
 	"sync"
 
 	"github.com/andeya/pholcus/app/aid/proxy"
@@ -9,17 +10,17 @@ import (
 	"github.com/andeya/pholcus/runtime/status"
 )
 
-// 调度器
+// scheduler coordinates crawl tasks and resource allocation.
 type scheduler struct {
-	status       int          // 运行状态
-	count        chan bool    // 总并发量计数
-	useProxy     bool         // 标记是否使用代理IP
-	proxy        *proxy.Proxy // 全局代理IP
-	matrices     []*Matrix    // Spider实例的请求矩阵列表
-	sync.RWMutex              // 全局读写锁
+	status       int          // running status
+	count        chan bool    // total concurrency count
+	useProxy     bool         // whether proxy IP is used
+	proxy        *proxy.Proxy // global proxy IP
+	matrices     []*Matrix    // request matrices per Spider instance
+	sync.RWMutex              // global read-write lock
 }
 
-// 定义全局调度
+// sdl is the global scheduler instance.
 var sdl = &scheduler{
 	status: status.RUN,
 	count:  make(chan bool, cache.Task.ThreadNum),
@@ -35,14 +36,14 @@ func Init() {
 		if sdl.proxy.Count() > 0 {
 			sdl.useProxy = true
 			sdl.proxy.UpdateTicker(cache.Task.ProxyMinute)
-			logs.Log.Informational(" *     使用代理IP，代理IP更换频率为 %v 分钟\n", cache.Task.ProxyMinute)
+			logs.Log.Informational(" *     Using proxy IP, rotation interval: %v minutes\n", cache.Task.ProxyMinute)
 		} else {
 			sdl.useProxy = false
-			logs.Log.Informational(" *     在线代理IP列表为空，无法使用代理IP\n")
+			logs.Log.Informational(" *     Proxy IP list is empty, cannot use proxy\n")
 		}
 	} else {
 		sdl.useProxy = false
-		logs.Log.Informational(" *     不使用代理IP\n")
+		logs.Log.Informational(" *     Not using proxy IP\n")
 	}
 
 	sdl.status = status.RUN
@@ -53,7 +54,7 @@ func ReloadProxyLib() {
 	sdl.proxy.Update()
 }
 
-// AddMatrix 注册资源队列
+// AddMatrix registers a resource queue for the given spider and returns its Matrix.
 func AddMatrix(spiderName, spiderSubName string, maxPage int64) *Matrix {
 	matrix := newMatrix(spiderName, spiderSubName, maxPage)
 	sdl.RLock()
@@ -62,7 +63,7 @@ func AddMatrix(spiderName, spiderSubName string, maxPage int64) *Matrix {
 	return matrix
 }
 
-// 暂停\恢复所有爬行任务
+// PauseRecover toggles pause/resume for all crawl tasks.
 func PauseRecover() {
 	sdl.Lock()
 	defer sdl.Unlock()
@@ -74,14 +75,15 @@ func PauseRecover() {
 	}
 }
 
-// 终止任务
+// Stop terminates all crawl tasks.
 func Stop() {
 	sdl.Lock()
 	defer sdl.Unlock()
 	sdl.status = status.STOP
-	// 清空
 	defer func() {
-		recover()
+		if p := recover(); p != nil {
+			logs.Log.Error("panic recovered: %v\n%s", p, debug.Stack())
+		}
 	}()
 	// for _, matrix := range sdl.matrices {
 	// 	matrix.windup()
@@ -90,7 +92,7 @@ func Stop() {
 	sdl.matrices = []*Matrix{}
 }
 
-// 每个spider实例分配到的平均资源量
+// avgRes returns the average resources allocated per spider instance.
 func (self *scheduler) avgRes() int32 {
 	avg := int32(cap(sdl.count) / len(sdl.matrices))
 	if avg == 0 {

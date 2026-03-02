@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"runtime/debug"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -13,16 +14,16 @@ import (
 	"github.com/andeya/pholcus/runtime/status"
 )
 
-// 一个Spider实例的请求矩阵
+// Matrix is the request queue for a single Spider instance.
 type Matrix struct {
-	maxPage         int64                       // 最大采集页数，以负数形式表示
-	resCount        int32                       // 资源使用情况计数
-	spiderName      string                      // 所属Spider
-	reqs            map[int][]*request.Request  // [优先级]队列，优先级默认为0
-	priorities      []int                       // 优先级顺序，从低到高
-	history         history.Historier           // 历史记录
-	tempHistory     map[string]bool             // 临时记录 [reqUnique(url+method)]true
-	failures        map[string]*request.Request // 历史及本次失败请求
+	maxPage         int64                       // max pages to collect (negative value)
+	resCount        int32                       // resource usage count
+	spiderName      string                      // associated Spider name
+	reqs            map[int][]*request.Request  // [priority] queues, default priority 0
+	priorities      []int                       // priority order, low to high
+	history         history.Historier           // history
+	tempHistory     map[string]bool             // temp record [reqUnique(url+method)]true
+	failures        map[string]*request.Request // historical and current failed requests
 	tempHistoryLock sync.RWMutex
 	failureLock     sync.Mutex
 	sync.Mutex
@@ -46,9 +47,8 @@ func newMatrix(spiderName, spiderSubName string, maxPage int64) *Matrix {
 	return matrix
 }
 
-// 添加请求到队列，并发安全
+// Push adds a request to the queue. Concurrency-safe.
 func (self *Matrix) Push(req *request.Request) {
-	// 禁止并发，降低请求积存量
 	self.Lock()
 	defer self.Unlock()
 
@@ -56,12 +56,10 @@ func (self *Matrix) Push(req *request.Request) {
 		return
 	}
 
-	// 达到请求上限，停止该规则运行
 	if self.maxPage >= 0 {
 		return
 	}
 
-	// 暂停状态时等待，降低请求积存量
 	waited := false
 	for sdl.checkStatus(status.PAUSE) {
 		waited = true
@@ -71,7 +69,6 @@ func (self *Matrix) Push(req *request.Request) {
 		return
 	}
 
-	// 资源使用过多时等待，降低请求积存量
 	waited = false
 	for atomic.LoadInt32(&self.resCount) > sdl.avgRes() {
 		waited = true
@@ -81,40 +78,32 @@ func (self *Matrix) Push(req *request.Request) {
 		return
 	}
 
-	// 不可重复下载的req
 	if !req.IsReloadable() {
-		// 已存在成功记录时退出
 		if self.hasHistory(req.Unique()) {
 			return
 		}
-		// 添加到临时记录
 		self.insertTempHistory(req.Unique())
 	}
 
 	var priority = req.GetPriority()
 
-	// 初始化该蜘蛛下该优先级队列
 	if _, found := self.reqs[priority]; !found {
 		self.priorities = append(self.priorities, priority)
-		sort.Ints(self.priorities) // 从小到大排序
+		sort.Ints(self.priorities)
 		self.reqs[priority] = []*request.Request{}
 	}
 
-	// 添加请求到队列
 	self.reqs[priority] = append(self.reqs[priority], req)
-
-	// 大致限制加入队列的请求量，并发情况下应该会比maxPage多
 	atomic.AddInt64(&self.maxPage, 1)
 }
 
-// 从队列取出请求，不存在时返回nil，并发安全
+// Pull removes and returns a request from the queue, or nil if empty. Concurrency-safe.
 func (self *Matrix) Pull() (req *request.Request) {
 	self.Lock()
 	defer self.Unlock()
 	if !sdl.checkStatus(status.RUN) {
 		return
 	}
-	// 按优先级从高到低取出请求
 	for i := len(self.reqs) - 1; i >= 0; i-- {
 		idx := self.priorities[i]
 		if len(self.reqs[idx]) > 0 {
@@ -134,20 +123,24 @@ func (self *Matrix) Pull() (req *request.Request) {
 	return
 }
 
+// Use acquires a resource slot for this Matrix.
 func (self *Matrix) Use() {
 	defer func() {
-		recover()
+		if p := recover(); p != nil {
+			logs.Log.Error("panic recovered: %v\n%s", p, debug.Stack())
+		}
 	}()
 	sdl.count <- true
 	atomic.AddInt32(&self.resCount, 1)
 }
 
+// Free releases a resource slot.
 func (self *Matrix) Free() {
 	<-sdl.count
 	atomic.AddInt32(&self.resCount, -1)
 }
 
-// 返回是否作为新的失败请求被添加至队列尾部
+// DoHistory records success/failure and returns true if the request was requeued as a new failure.
 func (self *Matrix) DoHistory(req *request.Request, ok bool) bool {
 	if !req.IsReloadable() {
 		self.tempHistoryLock.Lock()
@@ -167,16 +160,15 @@ func (self *Matrix) DoHistory(req *request.Request, ok bool) bool {
 	self.failureLock.Lock()
 	defer self.failureLock.Unlock()
 	if _, ok := self.failures[req.Unique()]; !ok {
-		// 首次失败时，在任务队列末尾重新执行一次
 		self.failures[req.Unique()] = req
-		logs.Log.Informational(" *     + 失败请求: [%v]\n", req.GetUrl())
+		logs.Log.Informational(" *     + Failed request: [%v]\n", req.GetUrl())
 		return true
 	}
-	// 失败两次后，加入历史失败记录
 	self.history.UpsertFailure(req)
 	return false
 }
 
+// CanStop reports whether this Matrix can stop (no pending work).
 func (self *Matrix) CanStop() bool {
 	if sdl.checkStatus(status.STOP) {
 		return true
@@ -194,7 +186,6 @@ func (self *Matrix) CanStop() bool {
 	self.failureLock.Lock()
 	defer self.failureLock.Unlock()
 	if len(self.failures) > 0 {
-		// 重新下载历史记录中失败的请求
 		var goon bool
 		for reqUnique, req := range self.failures {
 			if req == nil {
@@ -202,7 +193,7 @@ func (self *Matrix) CanStop() bool {
 			}
 			self.failures[reqUnique] = nil
 			goon = true
-			logs.Log.Informational(" *     - 失败请求: [%v]\n", req.GetUrl())
+			logs.Log.Informational(" *     - Failed request: [%v]\n", req.GetUrl())
 			self.Push(req)
 		}
 		if goon {
@@ -212,24 +203,23 @@ func (self *Matrix) CanStop() bool {
 	return true
 }
 
-// 非服务器模式下保存历史成功记录
+// TryFlushSuccess flushes success history in non-server mode.
 func (self *Matrix) TryFlushSuccess() {
 	if cache.Task.Mode != status.SERVER && cache.Task.SuccessInherit {
 		self.history.FlushSuccess(cache.Task.OutType)
 	}
 }
 
-// 非服务器模式下保存历史失败记录
+// TryFlushFailure flushes failure history in non-server mode.
 func (self *Matrix) TryFlushFailure() {
 	if cache.Task.Mode != status.SERVER && cache.Task.FailureInherit {
 		self.history.FlushFailure(cache.Task.OutType)
 	}
 }
 
-// 等待处理中的请求完成
+// Wait blocks until all in-flight requests complete.
 func (self *Matrix) Wait() {
 	if sdl.checkStatus(status.STOP) {
-		// 主动终止任务时，不等待运行中任务自然结束
 		return
 	}
 	for atomic.LoadInt32(&self.resCount) != 0 {
@@ -237,6 +227,7 @@ func (self *Matrix) Wait() {
 	}
 }
 
+// Len returns the number of queued requests.
 func (self *Matrix) Len() int {
 	self.Lock()
 	defer self.Unlock()
@@ -268,11 +259,11 @@ func (self *Matrix) setFailures(reqs map[string]*request.Request) {
 	defer self.failureLock.Unlock()
 	for key, req := range reqs {
 		self.failures[key] = req
-		logs.Log.Informational(" *     + 失败请求: [%v]\n", req.GetUrl())
+		logs.Log.Informational(" *     + Failed request: [%v]\n", req.GetUrl())
 	}
 }
 
-// // 主动终止任务时，进行收尾工作
+// // windup performs cleanup when stopping tasks.
 // func (self *Matrix) windup() {
 // 	self.Lock()
 

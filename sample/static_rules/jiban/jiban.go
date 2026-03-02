@@ -102,7 +102,7 @@ var Jiban = &spider.Spider{
 							jo.Find(".articleContent img").ReplaceWithHtml("#image#")
 							jo.Find(".articleContent img").Remove()
 							content, _ = jo.Find(".articleContent").Html()
-							content = strings.Replace(content, `"`, `'`, -1)
+							content = strings.ReplaceAll(content, `"`, `'`)
 						})
 					ctx.Output(map[int]interface{}{
 						0: title,

@@ -3,10 +3,12 @@ package goquery
 import (
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 
 	"github.com/andybalholm/cascadia"
+	"github.com/andeya/pholcus/common/closer"
 
 	"golang.org/x/net/html"
 )
@@ -60,7 +62,7 @@ func NewDocumentFromResponse(res *http.Response) (*Document, error) {
 	if res == nil {
 		return nil, errors.New("Response is nil")
 	}
-	defer res.Body.Close()
+	defer closer.LogClose(res.Body, log.Printf)
 	if res.Request == nil {
 		return nil, errors.New("Response.Request is nil")
 	}

@@ -27,8 +27,8 @@ import (
 	"golang.org/x/net/html/charset"
 )
 
-// 采用surf内核下载时，可以尝试自动转码为utf8
-// 采用phantomjs内核时，无需转码（已是utf8）
+// AutoToUTF8 attempts to transcode response body to UTF-8 when using Surf.
+// PhantomJS output is already UTF-8, so no transcoding is needed.
 func AutoToUTF8(resp *http.Response) error {
 	destReader, err := charset.NewReader(resp.Body, resp.Header.Get("Content-Type"))
 	if err == nil {
@@ -40,14 +40,14 @@ func AutoToUTF8(resp *http.Response) error {
 	return err
 }
 
-// 读取完整响应流正文
+// BodyBytes reads the full response body.
 func BodyBytes(resp *http.Response) ([]byte, error) {
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	return body, err
 }
 
-// 返回编码后的url.URL指针、及解析错误
+// UrlEncode parses and encodes the URL, returning the result and any parse error.
 func UrlEncode(urlStr string) (*url.URL, error) {
 	urlObj, err := url.Parse(urlStr)
 	urlObj.RawQuery = urlObj.Query().Encode()
@@ -83,7 +83,7 @@ func IsFileExists(path string) bool {
 	return !fi.IsDir()
 }
 
-// 遍历目录，可指定后缀
+// WalkDir walks a directory, optionally filtering by suffix.
 func WalkDir(targpath string, suffixes ...string) (dirlist []string) {
 	if !filepath.IsAbs(targpath) {
 		targpath, _ = filepath.Abs(targpath)
@@ -115,7 +115,7 @@ func WalkDir(targpath string, suffixes ...string) (dirlist []string) {
 	return
 }
 
-// 封装Response.Body
+// Body wraps Response.Body with a custom Reader for transcoding.
 type Body struct {
 	io.ReadCloser
 	io.Reader

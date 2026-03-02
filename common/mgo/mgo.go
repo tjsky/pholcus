@@ -36,15 +36,15 @@ var (
 func Refresh() {
 	session, err = mgo.Dial(config.MGO_CONN_STR)
 	if err != nil {
-		logs.Log.Error("MongoDB：%v\n", err)
+		logs.Log.Error("MongoDB: %v\n", err)
 	} else if err = session.Ping(); err != nil {
-		logs.Log.Error("MongoDB：%v\n", err)
+		logs.Log.Error("MongoDB: %v\n", err)
 	} else {
 		session.SetPoolLimit(config.MGO_CONN_CAP)
 	}
 }
 
-// 判断资源是否可用
+// Usable reports whether the MongoDB session is usable.
 func (self *MgoSrc) Usable() bool {
 	if self.Session == nil || self.Session.Ping() != nil {
 		return false
@@ -52,10 +52,10 @@ func (self *MgoSrc) Usable() bool {
 	return true
 }
 
-// 使用后的重置方法
+// Reset is called when the resource is returned to the pool.
 func (*MgoSrc) Reset() {}
 
-// 被资源池删除前的自毁方法
+// Close closes the session when removed from the pool.
 func (self *MgoSrc) Close() {
 	if self.Session == nil {
 		return
@@ -63,26 +63,27 @@ func (self *MgoSrc) Close() {
 	self.Session.Close()
 }
 
+// Error returns the last MongoDB connection error.
 func Error() error {
 	return err
 }
 
-// 调用资源池中的资源
+// Call executes fn with a pooled MongoDB connection.
 func Call(fn func(pool.Src) error) error {
 	return MgoPool.Call(fn)
 }
 
-// 销毁资源池
+// Close shuts down the connection pool.
 func Close() {
 	MgoPool.Close()
 }
 
-// 返回当前资源数量
+// Len returns the current resource count.
 func Len() int {
 	return MgoPool.Len()
 }
 
-// 获取所有数据
+// DatabaseNames returns all database names.
 func DatabaseNames() (names []string, err error) {
 	err = MgoPool.Call(func(src pool.Src) error {
 		names, err = src.(*MgoSrc).DatabaseNames()
@@ -91,7 +92,7 @@ func DatabaseNames() (names []string, err error) {
 	return
 }
 
-// 获取数据库集合列表
+// CollectionNames returns collection names for the given database.
 func CollectionNames(dbname string) (names []string, err error) {
 	MgoPool.Call(func(src pool.Src) error {
 		names, err = src.(*MgoSrc).DB(dbname).CollectionNames()

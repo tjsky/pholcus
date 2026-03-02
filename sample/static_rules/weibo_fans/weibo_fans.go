@@ -85,8 +85,8 @@ var WeiboFans = &spider.Spider{
 						name, _ := s.Find(".info_name a").Attr("title")
 						fmt.Println(name)
 						url, _ := s.Find(".info_name a").Attr("href")
-						uid := strings.Replace(url, "/u", "", -1)
-						uid = strings.Replace(uid, "/", "", -1)
+						uid := strings.ReplaceAll(url, "/u", "")
+						uid = strings.ReplaceAll(uid, "/", "")
 						url = "http://weibo.com/p/100505" + uid + "/info?mod=pedit_more"
 						var 认证 string = ""
 						if _, isExist := s.Find(".info_name i").Attr("title"); isExist {

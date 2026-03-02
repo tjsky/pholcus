@@ -10,9 +10,12 @@ package ping
 import (
 	"bytes"
 	"errors"
+	"log"
 	"net"
 	"os"
 	"time"
+
+	"github.com/andeya/pholcus/common/closer"
 )
 
 const (
@@ -133,7 +136,7 @@ func Pinger(address string, timeoutSecond int) error {
 		return err
 	}
 	c.SetDeadline(time.Now().Add(time.Duration(timeoutSecond) * time.Second))
-	defer c.Close()
+	defer closer.LogClose(c, log.Printf)
 
 	typ := icmpv4EchoRequest
 	xid, xseq := os.Getpid()&0xffff, 1

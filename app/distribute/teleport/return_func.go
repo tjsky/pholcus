@@ -1,10 +1,9 @@
 package teleport
 
-// ***********************************************常用函数*************************************************** \\
-// API中生成返回结果的方法
-// OpAndToAndFrom[0]参数为空时，系统将指定与对端相同的操作符
-// OpAndToAndFrom[1]参数为空时，系统将指定与对端为接收者
-// OpAndToAndFrom[2]参数为空时，系统将指定自身为发送者
+// ReturnData builds a response in API handlers.
+// OpAndToAndFrom[0] empty: use same operation as peer
+// OpAndToAndFrom[1] empty: use peer as receiver
+// OpAndToAndFrom[2] empty: use self as sender
 func ReturnData(body interface{}, OpAndToAndFrom ...string) *NetData {
 	data := &NetData{
 		Status: SUCCESS,
@@ -22,7 +21,7 @@ func ReturnData(body interface{}, OpAndToAndFrom ...string) *NetData {
 	return data
 }
 
-// 返回错误，receive建议为直接接收到的*NetData
+// ReturnError returns an error response; receive should be the original *NetData.
 func ReturnError(receive *NetData, status int, msg string, nodeuid ...string) *NetData {
 	receive.Status = status
 	receive.Body = msg

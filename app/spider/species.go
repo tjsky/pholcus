@@ -6,20 +6,20 @@ import (
 	"github.com/andeya/pholcus/common/pinyin"
 )
 
-// 蜘蛛种类列表
+// SpiderSpecies is the global registry of available spider types.
 type SpiderSpecies struct {
 	list   []*Spider
 	hash   map[string]*Spider
 	sorted bool
 }
 
-// 全局蜘蛛种类实例
+// Species is the singleton spider registry.
 var Species = &SpiderSpecies{
 	list: []*Spider{},
 	hash: map[string]*Spider{},
 }
 
-// 向蜘蛛种类清单添加新种类
+// Add registers a spider. If the name already exists, a numeric suffix is appended.
 func (self *SpiderSpecies) Add(sp *Spider) *Spider {
 	name := sp.Name
 	for i := 2; true; i++ {
@@ -35,7 +35,7 @@ func (self *SpiderSpecies) Add(sp *Spider) *Spider {
 	return sp
 }
 
-// 获取全部蜘蛛种类
+// Get returns all registered spiders, sorted by pinyin initials on first call.
 func (self *SpiderSpecies) Get() []*Spider {
 	if !self.sorted {
 		l := len(self.list)
@@ -54,6 +54,7 @@ func (self *SpiderSpecies) Get() []*Spider {
 	return self.list
 }
 
+// GetByName returns the spider with the given name, or nil if not found.
 func (self *SpiderSpecies) GetByName(name string) *Spider {
 	return self.hash[name]
 }

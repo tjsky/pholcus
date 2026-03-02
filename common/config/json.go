@@ -19,9 +19,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/andeya/pholcus/common/closer"
 )
 
 // JSONConfig is a json config parser and implements Config interface.
@@ -34,7 +37,7 @@ func (js *JSONConfig) Parse(filename string) (Configer, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer closer.LogClose(file, log.Printf)
 	content, err := io.ReadAll(file)
 	if err != nil {
 		return nil, err
@@ -60,8 +63,8 @@ func (js *JSONConfig) ParseData(data []byte) (Configer, error) {
 	return x, nil
 }
 
-// JSONConfigContainer A Config represents the json configuration.
-// Only when get value, support key as section:name type.
+// JSONConfigContainer represents the json configuration.
+// Keys support section::name format for get operations.
 type JSONConfigContainer struct {
 	data map[string]interface{}
 	sync.RWMutex
@@ -76,8 +79,7 @@ func (c *JSONConfigContainer) Bool(key string) (bool, error) {
 	return false, fmt.Errorf("not exist key: %q", key)
 }
 
-// DefaultBool return the bool value if has no error
-// otherwise return the defaultval
+// DefaultBool returns the bool value for a given key, or defaultval on error.
 func (c *JSONConfigContainer) DefaultBool(key string, defaultval bool) bool {
 	if v, err := c.Bool(key); err == nil {
 		return v
@@ -97,8 +99,7 @@ func (c *JSONConfigContainer) Int(key string) (int, error) {
 	return 0, errors.New("not exist key:" + key)
 }
 
-// DefaultInt returns the integer value for a given key.
-// if err != nil return defaltval
+// DefaultInt returns the integer value for a given key, or defaultval on error.
 func (c *JSONConfigContainer) DefaultInt(key string, defaultval int) int {
 	if v, err := c.Int(key); err == nil {
 		return v
@@ -118,8 +119,7 @@ func (c *JSONConfigContainer) Int64(key string) (int64, error) {
 	return 0, errors.New("not exist key:" + key)
 }
 
-// DefaultInt64 returns the int64 value for a given key.
-// if err != nil return defaltval
+// DefaultInt64 returns the int64 value for a given key, or defaultval on error.
 func (c *JSONConfigContainer) DefaultInt64(key string, defaultval int64) int64 {
 	if v, err := c.Int64(key); err == nil {
 		return v
@@ -139,8 +139,7 @@ func (c *JSONConfigContainer) Float(key string) (float64, error) {
 	return 0.0, errors.New("not exist key:" + key)
 }
 
-// DefaultFloat returns the float64 value for a given key.
-// if err != nil return defaltval
+// DefaultFloat returns the float64 value for a given key, or defaultval on error.
 func (c *JSONConfigContainer) DefaultFloat(key string, defaultval float64) float64 {
 	if v, err := c.Float(key); err == nil {
 		return v
@@ -159,8 +158,7 @@ func (c *JSONConfigContainer) String(key string) string {
 	return ""
 }
 
-// DefaultString returns the string value for a given key.
-// if err != nil return defaltval
+// DefaultString returns the string value for a given key, or defaultval if empty.
 func (c *JSONConfigContainer) DefaultString(key string, defaultval string) string {
 	// TODO FIXME should not use "" to replace non existence
 	if v := c.String(key); v != "" {
@@ -178,8 +176,7 @@ func (c *JSONConfigContainer) Strings(key string) []string {
 	return strings.Split(c.String(key), ";")
 }
 
-// DefaultStrings returns the []string value for a given key.
-// if err != nil return defaltval
+// DefaultStrings returns the []string value for a given key, or defaultval if nil.
 func (c *JSONConfigContainer) DefaultStrings(key string, defaultval []string) []string {
 	if v := c.Strings(key); v != nil {
 		return v
@@ -192,17 +189,16 @@ func (c *JSONConfigContainer) GetSection(section string) (map[string]string, err
 	if v, ok := c.data[section]; ok {
 		return v.(map[string]string), nil
 	}
-	return nil, errors.New("nonexist section " + section)
+	return nil, errors.New("section does not exist: " + section)
 }
 
-// SaveConfigFile save the config into file
+// SaveConfigFile writes the configuration to the given file.
 func (c *JSONConfigContainer) SaveConfigFile(filename string) (err error) {
-	// Write configuration file by filename.
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer closer.LogClose(f, log.Printf)
 	b, err := json.MarshalIndent(c.data, "", "  ")
 	if err != nil {
 		return err
@@ -225,10 +221,10 @@ func (c *JSONConfigContainer) DIY(key string) (v interface{}, err error) {
 	if val != nil {
 		return val, nil
 	}
-	return nil, errors.New("not exist key")
+	return nil, errors.New("key does not exist")
 }
 
-// section.key or key
+// getData returns the value for section.key or key.
 func (c *JSONConfigContainer) getData(key string) interface{} {
 	if len(key) == 0 {
 		return nil

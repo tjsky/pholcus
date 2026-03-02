@@ -1,11 +1,11 @@
 package distribute
 
-// 分布式的接口
+// Distributer is the distributed interface.
 type Distributer interface {
-	// 主节点从仓库发送一个任务
+	// Send sends a task from the master to the jar.
 	Send(clientNum int) Task
-	// 从节点接收一个任务到仓库
+	// Receive receives a task into the jar on a slave node.
 	Receive(task *Task)
-	// 返回与之连接的节点数
+	// CountNodes returns the number of connected nodes.
 	CountNodes() int
 }

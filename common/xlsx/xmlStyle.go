@@ -155,10 +155,16 @@ func (styles *xlsxStyleSheet) getStyle(styleIndex int) (style *Style) {
 
 		if xf.FontId > -1 && xf.FontId < styles.Fonts.Count {
 			xfont := styles.Fonts.Font[xf.FontId]
-			style.Font.Size, _ = strconv.Atoi(xfont.Sz.Val)
+			if v, e := strconv.Atoi(xfont.Sz.Val); e == nil {
+				style.Font.Size = v
+			}
 			style.Font.Name = xfont.Name.Val
-			style.Font.Family, _ = strconv.Atoi(xfont.Family.Val)
-			style.Font.Charset, _ = strconv.Atoi(xfont.Charset.Val)
+			if v, e := strconv.Atoi(xfont.Family.Val); e == nil {
+				style.Font.Family = v
+			}
+			if v, e := strconv.Atoi(xfont.Charset.Val); e == nil {
+				style.Font.Charset = v
+			}
 			style.Font.Color = styles.argbValue(xfont.Color)
 
 			if bold := xfont.B; bold != nil && bold.Val != "0" {

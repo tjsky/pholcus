@@ -17,7 +17,7 @@ type Surfer struct {
 }
 
 var (
-	cookieJar, _     = cookiejar.New(nil)
+	cookieJar, _     = cookiejar.New(nil) // nil options never returns error
 	SurferDownloader = &Surfer{
 		surf:    surfer.New(cookieJar),
 		phantom: surfer.NewPhantom(config.PHANTOMJS, config.PHANTOMJS_TEMP, cookieJar),
@@ -39,7 +39,7 @@ func (self *Surfer) Download(sp *spider.Spider, cReq *request.Request) *spider.C
 	}
 
 	if resp.StatusCode >= 400 {
-		err = errors.New("响应状态 " + resp.Status)
+		err = errors.New("response status " + resp.Status)
 	}
 
 	ctx.SetResponse(resp).SetError(err)

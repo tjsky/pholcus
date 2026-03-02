@@ -1,4 +1,4 @@
-// 数据收集
+// Package pipeline provides the data collection and output pipeline.
 package pipeline
 
 import (
@@ -7,14 +7,15 @@ import (
 	"github.com/andeya/pholcus/app/spider"
 )
 
-// 数据收集/输出管道
+// Pipeline collects spider results and writes them to the configured output.
 type Pipeline interface {
-	Start()                          //启动
-	Stop()                           //停止
-	CollectData(data.DataCell) error //收集数据单元
-	CollectFile(data.FileCell) error //收集文件
+	Start()
+	Stop()
+	CollectData(data.DataCell) error
+	CollectFile(data.FileCell) error
 }
 
+// New creates a new Pipeline for the given spider.
 func New(sp *spider.Spider) Pipeline {
 	return collector.NewCollector(sp)
 }

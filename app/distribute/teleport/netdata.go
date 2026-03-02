@@ -1,28 +1,19 @@
 package teleport
 
 const (
-	// 返回成功
-	SUCCESS = 0
-	// 返回失败
-	FAILURE = -1
-	// 返回非法请求
-	LLLEGAL = -2
+	SUCCESS  = 0
+	FAILURE  = -1
+	LLLEGAL  = -2
 )
 
-// 定义数据传输结构
+// NetData is the data transfer structure.
 type NetData struct {
-	// 消息体
-	Body interface{}
-	// 操作代号
+	Body      interface{}
 	Operation string
-	// 发信节点uid
-	From string
-	// 收信节点uid
-	To string
-	// 返回状态
-	Status int
-	// 标识符
-	Flag string
+	From      string
+	To        string
+	Status    int
+	Flag      string
 }
 
 func NewNetData(from, to, operation string, flag string, body interface{}) *NetData {

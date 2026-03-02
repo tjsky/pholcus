@@ -6,7 +6,7 @@ import (
 )
 
 // A kutenTable holds the data for a double-byte character set, arranged by ku
-// (区, zone) and ten (点, position). These can be converted to various actual
+// (zone) and ten (position). These can be converted to various actual
 // encoding schemes.
 type kutenTable struct {
 	// Data[ku][ten] is the unicode value for the character at that zone and

@@ -42,7 +42,7 @@ func init() {
 	gob.Register(map[int]int64{})
 }
 
-// EncodeGob encode the obj to gob
+// EncodeGob encodes the object map to gob format.
 func EncodeGob(obj map[interface{}]interface{}) ([]byte, error) {
 	for _, v := range obj {
 		gob.Register(v)
@@ -56,7 +56,7 @@ func EncodeGob(obj map[interface{}]interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// DecodeGob decode data to map
+// DecodeGob decodes gob data to a map.
 func DecodeGob(encoded []byte) (map[interface{}]interface{}, error) {
 	buf := bytes.NewBuffer(encoded)
 	dec := gob.NewDecoder(buf)
@@ -117,35 +117,27 @@ func decrypt(block cipher.Block, value []byte) ([]byte, error) {
 func encodeCookie(block cipher.Block, hashKey, name string, value map[interface{}]interface{}) (string, error) {
 	var err error
 	var b []byte
-	// 1. EncodeGob.
 	if b, err = EncodeGob(value); err != nil {
 		return "", err
 	}
-	// 2. Encrypt (optional).
 	if b, err = encrypt(block, b); err != nil {
 		return "", err
 	}
 	b = encode(b)
-	// 3. Create MAC for "name|date|value". Extra pipe to be used later.
 	b = []byte(fmt.Sprintf("%s|%d|%s|", name, time.Now().UTC().Unix(), b))
 	h := hmac.New(sha1.New, []byte(hashKey))
 	h.Write(b)
 	sig := h.Sum(nil)
-	// Append mac, remove name.
 	b = append(b, sig...)[len(name)+1:]
-	// 4. Encode to base64.
 	b = encode(b)
-	// Done.
 	return string(b), nil
 }
 
 func decodeCookie(block cipher.Block, hashKey, name, value string, gcmaxlifetime int64) (map[interface{}]interface{}, error) {
-	// 1. Decode from base64.
 	b, err := decode([]byte(value))
 	if err != nil {
 		return nil, err
 	}
-	// 2. Verify MAC. Value is "date|value|mac".
 	parts := bytes.SplitN(b, []byte("|"), 3)
 	if len(parts) != 3 {
 		return nil, errors.New("Decode: invalid value %v")
@@ -158,7 +150,6 @@ func decodeCookie(block cipher.Block, hashKey, name, value string, gcmaxlifetime
 	if len(sig) != len(parts[2]) || subtle.ConstantTimeCompare(sig, parts[2]) != 1 {
 		return nil, errors.New("Decode: the value is not valid")
 	}
-	// 3. Verify date ranges.
 	var t1 int64
 	if t1, err = strconv.ParseInt(string(parts[0]), 10, 64); err != nil {
 		return nil, errors.New("Decode: invalid timestamp")
@@ -170,7 +161,6 @@ func decodeCookie(block cipher.Block, hashKey, name, value string, gcmaxlifetime
 	if t1 < t2-gcmaxlifetime {
 		return nil, errors.New("Decode: expired timestamp")
 	}
-	// 4. Decrypt (optional).
 	b, err = decode(parts[1])
 	if err != nil {
 		return nil, err
@@ -178,7 +168,6 @@ func decodeCookie(block cipher.Block, hashKey, name, value string, gcmaxlifetime
 	if b, err = decrypt(block, b); err != nil {
 		return nil, err
 	}
-	// 5. DecodeGob.
 	dst, err := DecodeGob(b)
 	if err != nil {
 		return nil, err
@@ -205,7 +194,7 @@ func decode(value []byte) ([]byte, error) {
 	return decoded[:b], nil
 }
 
-// RandomCreateBytes generate random []byte by specify chars.
+// RandomCreateBytes generates random []byte of length n using the specified alphabet.
 func RandomCreateBytes(n int, alphabets ...byte) []byte {
 	const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 	var bytes = make([]byte, n)

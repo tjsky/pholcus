@@ -155,7 +155,7 @@ func (s *Selection) RemoveClass(class ...string) *Selection {
 		} else {
 			classes, attr := getClassesAndAttr(n, true)
 			for _, rcl := range rclasses {
-				classes = strings.Replace(classes, " "+rcl+" ", " ", -1)
+				classes = strings.ReplaceAll(classes, " "+rcl+" ", " ")
 			}
 
 			setClasses(n, attr, classes)
@@ -180,7 +180,7 @@ func (s *Selection) ToggleClass(class ...string) *Selection {
 		classes, attr := getClassesAndAttr(n, true)
 		for _, tcl := range tcls {
 			if strings.Contains(classes, " "+tcl+" ") {
-				classes = strings.Replace(classes, " "+tcl+" ", " ", -1)
+				classes = strings.ReplaceAll(classes, " "+tcl+" ", " ")
 			} else {
 				classes += tcl + " "
 			}

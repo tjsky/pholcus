@@ -117,9 +117,9 @@ var Miyabaobei = &spider.Spider{
 					query := ctx.GetDom()
 					//获取品类
 					goodsType := query.Find(".crumbs").Text()
-					re, _ := regexp.Compile("\\s")
+					re := regexp.MustCompile("\\s")
 					goodsType = re.ReplaceAllString(goodsType, "")
-					re, _ = regexp.Compile("蜜芽宝贝>")
+					re = regexp.MustCompile("蜜芽宝贝>")
 					goodsType = re.ReplaceAllString(goodsType, "")
 					query.Find(".bmfo").Each(func(i int, s *goquery.Selection) {
 						// 获取标题

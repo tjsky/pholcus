@@ -10,7 +10,7 @@ import (
 	"github.com/andeya/pholcus/runtime/cache"
 )
 
-// 初始化输出方式列表collector.DataOutputLib
+// init populates collector.DataOutputLib with available output backend names.
 func init() {
 	for out, _ := range collector.DataOutput {
 		collector.DataOutputLib = append(collector.DataOutputLib, out)
@@ -18,7 +18,7 @@ func init() {
 	sort.Strings(collector.DataOutputLib)
 }
 
-// 刷新输出方式的状态
+// RefreshOutput refreshes the state of the configured output backend.
 func RefreshOutput() {
 	switch cache.Task.OutType {
 	case "mgo":

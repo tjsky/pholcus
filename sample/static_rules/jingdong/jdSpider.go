@@ -62,9 +62,9 @@ var JDSpider = &spider.Spider{
 					pageCount := 0
 					query.Find("script").Each(func(i int, s *goquery.Selection) {
 						if strings.Contains(s.Text(), "page_count") {
-							re, _ := regexp.Compile(`page_count:"\d{1,}"`)
+							re := regexp.MustCompile(`page_count:"\d{1,}"`)
 							temp := re.FindString(s.Text())
-							re, _ = regexp.Compile(`\d{1,}`)
+							re = regexp.MustCompile(`\d{1,}`)
 							temp2 := re.FindString(temp)
 							pageCount, _ = strconv.Atoi(temp2)
 						}
@@ -114,7 +114,7 @@ var JDSpider = &spider.Spider{
 						a := s.Find(".p-name.p-name-type-2 > a")
 						title := a.Text()
 
-						re, _ := regexp.Compile("\\<[\\S\\s]+?\\>")
+						re := regexp.MustCompile("\\<[\\S\\s]+?\\>")
 						// title = re.ReplaceAllStringFunc(title, strings.ToLower)
 						title = re.ReplaceAllString(title, " ")
 						title = strings.Trim(title, " \t\n")

@@ -1,6 +1,6 @@
 package status
 
-// 运行模式
+// Runtime mode constants.
 const (
 	UNSET int = iota - 1
 	OFFLINE
@@ -8,17 +8,14 @@ const (
 	CLIENT
 )
 
-// 数据头部信息
+// Data header type constants.
 const (
-	// 任务请求Header
-	REQTASK = iota + 1
-	// 任务响应流头Header
-	TASK
-	// 打印Header
-	LOG
+	REQTASK = iota + 1 // task request header
+	TASK               // task response stream header
+	LOG                // log output header
 )
 
-// 运行状态
+// Runtime status constants.
 const (
 	STOPPED = iota - 1
 	STOP

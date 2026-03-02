@@ -8,7 +8,7 @@ import (
 	"github.com/andeya/pholcus/runtime/status"
 )
 
-// 采集引擎池
+// CrawlerPool manages a pool of crawler engines.
 type (
 	CrawlerPool interface {
 		Reset(spiderNum int) int
@@ -26,6 +26,7 @@ type (
 	}
 )
 
+// NewCrawlerPool creates a new crawler pool.
 func NewCrawlerPool() CrawlerPool {
 	return &cq{
 		status: status.RUN,
@@ -33,8 +34,8 @@ func NewCrawlerPool() CrawlerPool {
 	}
 }
 
-// 根据要执行的蜘蛛数量设置CrawlerPool
-// 在二次使用Pool实例时，可根据容量高效转换
+// Reset configures the pool size based on the number of spiders to run.
+// When reusing a pool instance, it efficiently resizes to the new capacity.
 func (self *cq) Reset(spiderNum int) int {
 	self.Lock()
 	defer self.Unlock()
@@ -60,7 +61,7 @@ func (self *cq) Reset(spiderNum int) int {
 	return wantNum
 }
 
-// 并发安全地使用资源
+// Use acquires a crawler from the pool in a concurrency-safe manner.
 func (self *cq) Use() Crawler {
 	var crawler Crawler
 	for {
@@ -87,6 +88,7 @@ func (self *cq) Use() Crawler {
 	}
 }
 
+// Free returns a crawler to the pool.
 func (self *cq) Free(crawler Crawler) {
 	self.RLock()
 	defer self.RUnlock()
@@ -96,7 +98,7 @@ func (self *cq) Free(crawler Crawler) {
 	self.usable <- crawler
 }
 
-// 主动终止所有爬行任务
+// Stop terminates all crawler tasks in the pool.
 func (self *cq) Stop() {
 	self.Lock()
 	if self.status == status.STOP {

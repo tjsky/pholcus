@@ -1,6 +1,7 @@
 package web
 
 import (
+	"log"
 	"net/http"
 	"text/template"
 
@@ -14,21 +15,27 @@ import (
 var globalSessions *session.Manager
 
 func init() {
-	globalSessions, _ = session.NewManager("memory", `{"cookieName":"pholcusSession", "enableSetCookie,omitempty": true, "secure": false, "sessionIDHashFunc": "sha1", "sessionIDHashKey": "", "cookieLifeTime": 157680000, "providerConfig": ""}`)
+	var err error
+	globalSessions, err = session.NewManager("memory", `{"cookieName":"pholcusSession", "enableSetCookie,omitempty": true, "secure": false, "sessionIDHashFunc": "sha1", "sessionIDHashKey": "", "cookieLifeTime": 157680000, "providerConfig": ""}`)
+	if err != nil {
+		log.Fatal(err)
+	}
 	// go globalSessions.GC()
 }
 
-// 处理web页面请求
 func web(rw http.ResponseWriter, req *http.Request) {
 	sess, _ := globalSessions.SessionStart(rw, req)
 	defer sess.SessionRelease(rw)
-	index, _ := viewsIndexHtmlBytes()
-	t, err := template.New("index").Parse(string(index)) //解析模板文件
-	// t, err := template.ParseFiles("web/views/index.html") //解析模板文件
+	index, err := viewsFS.ReadFile("views/index.html")
+	if err != nil {
+		logs.Log.Error("read index.html: %v", err)
+		http.Error(rw, "internal error", http.StatusInternalServerError)
+		return
+	}
+	t, err := template.New("index").Parse(string(index))
 	if err != nil {
 		logs.Log.Error("%v", err)
 	}
-	//获取pholcus信息
 	data := map[string]interface{}{
 		"title":   config.NAME,
 		"logo":    config.ICON_PNG,
@@ -50,5 +57,5 @@ func web(rw http.ResponseWriter, req *http.Request) {
 		"port": app.LogicApp.GetAppConf("port").(int),
 		"ip":   app.LogicApp.GetAppConf("master").(string),
 	}
-	t.Execute(rw, data) //执行模板的merger操作
+	t.Execute(rw, data)
 }

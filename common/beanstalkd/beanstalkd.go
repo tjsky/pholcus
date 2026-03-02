@@ -9,20 +9,22 @@ import (
 	"github.com/pkg/errors"
 )
 
+// BeanstalkdClient wraps a beanstalk connection and tube for job queuing.
 type BeanstalkdClient struct {
 	Conn *beanstalk.Conn
 	Tube string
 }
 
+// New creates a new BeanstalkdClient using config.BeanstalkdHost and config.BeanstalkdTube.
 func New() (*BeanstalkdClient, error) {
 	tmp := new(BeanstalkdClient)
 	host := config.BeanstalkdHost
 	if host == "" {
-		return nil, errors.New("beanstalk 主机为空")
+		return nil, errors.New("beanstalk host is empty")
 	}
 	tube := config.BeanstalkdTube
 	if tube == "" {
-		return nil, errors.New("tube name 为空")
+		return nil, errors.New("tube name is empty")
 	}
 	conn, err := beanstalk.Dial("tcp", host)
 	if err != nil {
@@ -33,12 +35,14 @@ func New() (*BeanstalkdClient, error) {
 	return tmp, nil
 }
 
+// Close closes the beanstalk connection.
 func (srv *BeanstalkdClient) Close() {
 	if srv.Conn != nil {
 		srv.Conn.Close()
 	}
 }
 
+// Send encodes content as URL values and puts it into the configured tube.
 func (srv *BeanstalkdClient) Send(content url.Values) {
 	if srv.Conn == nil {
 		return
@@ -48,8 +52,7 @@ func (srv *BeanstalkdClient) Send(content url.Values) {
 
 	_, err := tube.Put([]byte(data), 1, 0, 0)
 	if err != nil {
-		logs.Log.Error("写入beanstalkd错误:%v,内容=%s", err, data)
+		logs.Log.Error("beanstalkd write error: %v, content=%s", err, data)
 		return
 	}
-	return
 }

@@ -96,7 +96,7 @@ var Shunfenghaitao = &spider.Spider{
 
 					// 获取品牌
 					brand := query.Find(".goods-c2 ul").Eq(0).Find("li").Eq(2).Text()
-					re, _ := regexp.Compile(`品 牌`)
+					re := regexp.MustCompile(`品 牌`)
 					brand = re.ReplaceAllString(brand, "")
 
 					// 获取原产地

@@ -10,7 +10,8 @@ import (
 	"github.com/andeya/pholcus/common/util"
 )
 
-/************************ beanstalkd 输出 ***************************/
+// --- Beanstalkd Output ---
+
 func init() {
 	DataOutput["beanstalkd"] = func(self *Collector) (err error) {
 		defer func() {
@@ -28,7 +29,6 @@ func init() {
 		namespace := fmt.Sprintf("%v__%v-%v", util.FileNameReplace(self.namespace()), self.sum[0], self.sum[1])
 		createtime := fmt.Sprintf("%d", time.Now().Unix())
 
-		// 添加分类数据工作表
 		for _, datacell := range self.dataDocker {
 			var subNamespace = util.FileNameReplace(self.subNamespace(datacell))
 

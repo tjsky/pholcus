@@ -8,14 +8,14 @@ import (
 )
 
 const (
-	GC_SIZE = 50 << 20 //默认50MB
+	GC_SIZE = 50 << 20 // default 50MB
 )
 
 var (
 	gcOnce sync.Once
 )
 
-// 手动释放堆中准备重用的一些内存
+// ManualGC periodically frees memory from the heap for reuse.
 func ManualGC() {
 	go gcOnce.Do(func() {
 		tick := time.Tick(2 * time.Minute)
@@ -25,7 +25,6 @@ func ManualGC() {
 			runtime.ReadMemStats(&mem)
 			if mem.HeapReleased >= GC_SIZE {
 				debug.FreeOSMemory()
-				// runtime.GC()
 			}
 		}
 	})

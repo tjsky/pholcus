@@ -16,61 +16,60 @@ import (
 var ErrForcedStop = errors.New("forced stop")
 
 const (
-	KEYIN       = util.USE_KEYIN // 若使用Spider.Keyin，则须在规则中设置初始值为USE_KEYIN
-	LIMIT       = math.MaxInt64  // 如希望在规则中自定义控制Limit，则Limit初始值必须为LIMIT
+	KEYIN       = util.USE_KEYIN // rules that use Spider.Keyin must set its initial value to USE_KEYIN
+	LIMIT       = math.MaxInt64  // rules that customize Limit must set its initial value to LIMIT
 	FORCED_STOP = "——主动终止Spider——"
 )
 
 type (
-	// 蜘蛛规则
+	// Spider defines a crawl spider with its rules and runtime state.
 	Spider struct {
-		// 以下字段由用户定义
-		Name            string                                                     // 用户界面显示的名称（应保证唯一性）
-		Description     string                                                     // 用户界面显示的描述
-		Pausetime       int64                                                      // 随机暂停区间(50%~200%)，若规则中直接定义，则不被界面传参覆盖
-		Limit           int64                                                      // 默认限制请求数，0为不限；若规则中定义为LIMIT，则采用规则的自定义限制方案
-		Keyin           string                                                     // 自定义输入的配置信息，使用前须在规则中设置初始值为KEYIN
-		EnableCookie    bool                                                       // 所有请求是否使用cookie记录
-		NotDefaultField bool                                                       // 是否禁止输出结果中的默认字段 Url/ParentUrl/DownloadTime
-		Namespace       func(self *Spider) string                                  // 命名空间，用于输出文件、路径的命名
-		SubNamespace    func(self *Spider, dataCell map[string]interface{}) string // 次级命名，用于输出文件、路径的命名，可依赖具体数据内容
-		RuleTree        *RuleTree                                                  // 定义具体的采集规则树
+		// User-defined fields
+		Name            string                                                     // display name (must be unique)
+		Description     string                                                     // display description
+		Pausetime       int64                                                      // random pause range (50%~200%); if set in rule, overrides UI parameter
+		Limit           int64                                                      // request limit (0 = unlimited; set to LIMIT for custom limit logic in rules)
+		Keyin           string                                                     // custom input config (set to KEYIN in rules to enable)
+		EnableCookie    bool                                                       // whether requests carry cookies
+		NotDefaultField bool                                                       // disable default output fields Url/ParentUrl/DownloadTime
+		Namespace       func(self *Spider) string                                  // namespace for output file/path naming
+		SubNamespace    func(self *Spider, dataCell map[string]interface{}) string  // sub-namespace, may depend on specific data content
+		RuleTree        *RuleTree                                                  // crawl rule tree
 
-		// 以下字段系统自动赋值
-		id        int               // 自动分配的SpiderQueue中的索引
-		subName   string            // 由Keyin转换为的二级标识名
-		reqMatrix *scheduler.Matrix // 请求矩阵
-		timer     *Timer            // 定时器
-		status    int               // 执行状态
+		// System-assigned fields
+		id        int
+		subName   string            // secondary identifier derived from Keyin
+		reqMatrix *scheduler.Matrix // request scheduling matrix
+		timer     *Timer
+		status    int
 		lock      sync.RWMutex
 		once      sync.Once
 	}
-	//采集规则树
+	// RuleTree defines the crawl rule tree.
 	RuleTree struct {
-		Root  func(*Context)   // 根节点(执行入口)
-		Trunk map[string]*Rule // 节点散列表(执行采集过程)
+		Root  func(*Context)   // entry point
+		Trunk map[string]*Rule // rule map (keyed by rule name)
 	}
-	// 采集规则节点
+	// Rule defines a single crawl rule node.
 	Rule struct {
-		ItemFields []string                                           // 结果字段列表(选填，写上可保证字段顺序)
-		ParseFunc  func(*Context)                                     // 内容解析函数
-		AidFunc    func(*Context, map[string]interface{}) interface{} // 通用辅助函数
+		ItemFields []string                                           // result field names (optional; preserves field order)
+		ParseFunc  func(*Context)                                     // content parsing function
+		AidFunc    func(*Context, map[string]interface{}) interface{} // auxiliary helper function
 	}
 )
 
-// 添加自身到蜘蛛菜单
+// Register adds this spider to the global species list.
 func (self *Spider) Register() *Spider {
 	self.status = status.STOPPED
 	return Species.Add(self)
 }
 
-// 指定规则的获取结果的字段名列表
+// GetItemFields returns the result field names for the given rule.
 func (self *Spider) GetItemFields(rule *Rule) []string {
 	return rule.ItemFields
 }
 
-// 返回结果字段名的值
-// 不存在时返回空字符串
+// GetItemField returns the field name at the given index, or "" if out of range.
 func (self *Spider) GetItemField(rule *Rule, index int) (field string) {
 	if index > len(rule.ItemFields)-1 || index < 0 {
 		return ""
@@ -78,8 +77,7 @@ func (self *Spider) GetItemField(rule *Rule, index int) (field string) {
 	return rule.ItemFields[index]
 }
 
-// 返回结果字段名的其索引
-// 不存在时索引为-1
+// GetItemFieldIndex returns the index of the given field name, or -1 if not found.
 func (self *Spider) GetItemFieldIndex(rule *Rule, field string) (index int) {
 	for idx, v := range rule.ItemFields {
 		if v == field {
@@ -89,8 +87,8 @@ func (self *Spider) GetItemFieldIndex(rule *Rule, field string) (index int) {
 	return -1
 }
 
-// 为指定Rule动态追加结果字段名，并返回索引位置
-// 已存在时返回原来索引位置
+// UpsertItemField appends a result field name to the rule and returns its index.
+// If the field already exists, the existing index is returned.
 func (self *Spider) UpsertItemField(rule *Rule, field string) (index int) {
 	for i, v := range rule.ItemFields {
 		if v == field {
@@ -101,12 +99,12 @@ func (self *Spider) UpsertItemField(rule *Rule, field string) (index int) {
 	return len(rule.ItemFields) - 1
 }
 
-// 获取蜘蛛名称
+// GetName returns the spider name.
 func (self *Spider) GetName() string {
 	return self.Name
 }
 
-// 获取蜘蛛二级标识名
+// GetSubName returns the secondary identifier derived from Keyin (computed once).
 func (self *Spider) GetSubName() string {
 	self.once.Do(func() {
 		self.subName = self.GetKeyin()
@@ -115,78 +113,72 @@ func (self *Spider) GetSubName() string {
 	return self.subName
 }
 
-// 安全返回指定规则
+// GetRule returns the rule with the given name, with a found flag.
 func (self *Spider) GetRule(ruleName string) (*Rule, bool) {
 	rule, found := self.RuleTree.Trunk[ruleName]
 	return rule, found
 }
 
-// 返回指定规则
+// MustGetRule returns the rule with the given name (panics if missing).
 func (self *Spider) MustGetRule(ruleName string) *Rule {
 	return self.RuleTree.Trunk[ruleName]
 }
 
-// 返回规则树
+// GetRules returns the full rule map.
 func (self *Spider) GetRules() map[string]*Rule {
 	return self.RuleTree.Trunk
 }
 
-// 获取蜘蛛描述
+// GetDescription returns the spider description.
 func (self *Spider) GetDescription() string {
 	return self.Description
 }
 
-// 获取蜘蛛ID
+// GetId returns the spider's queue index.
 func (self *Spider) GetId() int {
 	return self.id
 }
 
-// 设置蜘蛛ID
+// SetId assigns the spider's queue index.
 func (self *Spider) SetId(id int) {
 	self.id = id
 }
 
-// 获取自定义配置信息
+// GetKeyin returns the custom keyword/configuration input.
 func (self *Spider) GetKeyin() string {
 	return self.Keyin
 }
 
-// 设置自定义配置信息
+// SetKeyin sets the custom keyword/configuration input.
 func (self *Spider) SetKeyin(keyword string) {
 	self.Keyin = keyword
 }
 
-// 获取采集上限
-// <0 表示采用限制请求数的方案
-// >0 表示采用规则中的自定义限制方案
+// GetLimit returns the crawl limit.
+// Negative means request-count limiting; positive means custom rule-based limiting.
 func (self *Spider) GetLimit() int64 {
 	return self.Limit
 }
 
-// 设置采集上限
-// <0 表示采用限制请求数的方案
-// >0 表示采用规则中的自定义限制方案
+// SetLimit sets the crawl limit.
 func (self *Spider) SetLimit(max int64) {
 	self.Limit = max
 }
 
-// 控制所有请求是否使用cookie
+// GetEnableCookie reports whether requests carry cookies.
 func (self *Spider) GetEnableCookie() bool {
 	return self.EnableCookie
 }
 
-// 自定义暂停时间 pause[0]~(pause[0]+pause[1])，优先级高于外部传参
-// 当且仅当runtime[0]为true时可覆盖现有值
+// SetPausetime sets a custom pause interval. Only overwrites an existing value when runtime[0] is true.
 func (self *Spider) SetPausetime(pause int64, runtime ...bool) {
 	if self.Pausetime == 0 || len(runtime) > 0 && runtime[0] {
 		self.Pausetime = pause
 	}
 }
 
-// 设置定时器
-// @id为定时器唯一标识
-// @bell==nil时为倒计时器，此时@tol为睡眠时长
-// @bell!=nil时为闹铃，此时@tol用于指定醒来时刻（从now起遇到的第tol个bell）
+// SetTimer configures a timer identified by id.
+// When bell is nil, tol is a sleep duration (countdown); otherwise tol specifies the wake-up occurrence.
 func (self *Spider) SetTimer(id string, tol time.Duration, bell *Bell) bool {
 	if self.timer == nil {
 		self.timer = newTimer()
@@ -194,7 +186,7 @@ func (self *Spider) SetTimer(id string, tol time.Duration, bell *Bell) bool {
 	return self.timer.set(id, tol, bell)
 }
 
-// 启动定时器，并返回定时器是否可以继续使用
+// RunTimer starts the timer and reports whether it can continue to be used.
 func (self *Spider) RunTimer(id string) bool {
 	if self.timer == nil {
 		return false
@@ -202,7 +194,7 @@ func (self *Spider) RunTimer(id string) bool {
 	return self.timer.sleep(id)
 }
 
-// 返回一个自身复制品
+// Copy returns a deep copy of the spider, including its rule tree.
 func (self *Spider) Copy() *Spider {
 	ghost := &Spider{}
 	ghost.Name = self.Name
@@ -238,6 +230,7 @@ func (self *Spider) Copy() *Spider {
 	return ghost
 }
 
+// ReqmatrixInit initializes the request scheduling matrix for this spider.
 func (self *Spider) ReqmatrixInit() *Spider {
 	if self.Limit < 0 {
 		self.reqMatrix = scheduler.AddMatrix(self.GetName(), self.GetSubName(), self.Limit)
@@ -248,15 +241,17 @@ func (self *Spider) ReqmatrixInit() *Spider {
 	return self
 }
 
-// 返回是否作为新的失败请求被添加至队列尾部
+// DoHistory records request history and reports whether a failed request was re-enqueued.
 func (self *Spider) DoHistory(req *request.Request, ok bool) bool {
 	return self.reqMatrix.DoHistory(req, ok)
 }
 
+// RequestPush enqueues a request into the scheduling matrix.
 func (self *Spider) RequestPush(req *request.Request) {
 	self.reqMatrix.Push(req)
 }
 
+// RequestPull dequeues the next request from the scheduling matrix.
 func (self *Spider) RequestPull() *request.Request {
 	return self.reqMatrix.Pull()
 }
@@ -281,7 +276,7 @@ func (self *Spider) TryFlushFailure() {
 	self.reqMatrix.TryFlushFailure()
 }
 
-// 开始执行蜘蛛
+// Start executes the spider's root rule.
 func (self *Spider) Start() {
 	defer func() {
 		if p := recover(); p != nil {
@@ -294,7 +289,7 @@ func (self *Spider) Start() {
 	self.RuleTree.Root(GetContext(self, nil))
 }
 
-// 主动崩溃爬虫运行协程
+// Stop gracefully stops the spider and cancels all timers.
 func (self *Spider) Stop() {
 	self.lock.Lock()
 	defer self.lock.Unlock()
@@ -302,26 +297,27 @@ func (self *Spider) Stop() {
 		return
 	}
 	self.status = status.STOP
-	// 取消所有定时器
 	if self.timer != nil {
 		self.timer.drop()
 		self.timer = nil
 	}
 }
 
+// CanStop reports whether the spider can transition to a stopped state.
 func (self *Spider) CanStop() bool {
 	self.lock.RLock()
 	defer self.lock.RUnlock()
 	return self.status != status.STOPPED && self.reqMatrix.CanStop()
 }
 
+// IsStopping reports whether the spider is in the process of stopping.
 func (self *Spider) IsStopping() bool {
 	self.lock.RLock()
 	defer self.lock.RUnlock()
 	return self.status == status.STOP
 }
 
-// tryStop 检查是否已主动终止任务，若是则返回 ErrForcedStop。
+// tryStop returns ErrForcedStop if the spider is being stopped, nil otherwise.
 func (self *Spider) tryStop() error {
 	if self.IsStopping() {
 		return ErrForcedStop
@@ -329,20 +325,17 @@ func (self *Spider) tryStop() error {
 	return nil
 }
 
-// 退出任务前收尾工作
+// Defer performs cleanup before the spider exits: cancels timers, waits for in-flight requests, and flushes failures.
 func (self *Spider) Defer() {
-	// 取消所有定时器
 	if self.timer != nil {
 		self.timer.drop()
 		self.timer = nil
 	}
-	// 等待处理中的请求完成
 	self.reqMatrix.Wait()
-	// 更新失败记录
 	self.reqMatrix.TryFlushFailure()
 }
 
-// 是否输出默认添加的字段 Url/ParentUrl/DownloadTime
+// OutDefaultField reports whether default fields (Url/ParentUrl/DownloadTime) should be included in output.
 func (self *Spider) OutDefaultField() bool {
 	return !self.NotDefaultField
 }

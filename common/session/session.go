@@ -62,7 +62,7 @@ type Provider interface {
 	SessionExist(sid string) bool
 	SessionRegenerate(oldsid, sid string) (Store, error)
 	SessionDestroy(sid string) error
-	SessionAll() int //get all active session
+	SessionAll() int // return count of active sessions
 	SessionGC()
 }
 
@@ -105,18 +105,9 @@ type Manager struct {
 	config   *managerConfig
 }
 
-// NewManager Create new Manager with provider name and json config string.
-// provider name:
-// 1. cookie
-// 2. file
-// 3. memory
-// 4. redis
-// 5. mysql
-// json config:
-// 1. is https  default false
-// 2. hashfunc  default sha1
-// 3. hashkey default beegosessionkey
-// 4. maxage default is none
+// NewManager creates a new Manager with provider name and JSON config string.
+// Supported providers: cookie, file, memory, redis, mysql.
+// JSON config: is https (default false), hashfunc (default sha1), hashkey (default beegosessionkey), maxage (default none).
 func NewManager(provideName, config string) (*Manager, error) {
 	provider, ok := provides[provideName]
 	if !ok {
@@ -153,7 +144,6 @@ func NewManager(provideName, config string) (*Manager, error) {
 		cf.SessionIDLength = 16
 	}
 
-	// 设置存储提供者cookie的CookieName
 	CookieName = cf.CookieName
 
 	return &Manager{
@@ -273,23 +263,24 @@ func (manager *Manager) GetSessionStore(sid string) (sessions Store, err error) 
 	return
 }
 
-// GC Start session gc process.
-// it can do gc in times after gc lifetime.
+// GC starts the session garbage collection process, scheduled at gc lifetime intervals.
 func (manager *Manager) GC() {
 	manager.provider.SessionGC()
 	time.AfterFunc(time.Duration(manager.config.Gclifetime)*time.Second, func() { manager.GC() })
 }
 
 // SessionRegenerateID Regenerate a session id for this SessionStore who's id is saving in http request.
-func (manager *Manager) SessionRegenerateID(w http.ResponseWriter, r *http.Request) (session Store) {
+func (manager *Manager) SessionRegenerateID(w http.ResponseWriter, r *http.Request) (session Store, err error) {
 	sid, err := manager.sessionID()
 	if err != nil {
-		return
+		return nil, err
 	}
 	cookie, err := r.Cookie(manager.config.CookieName)
 	if err != nil || cookie.Value == "" {
-		//delete old cookie
-		session, _ = manager.provider.SessionRead(sid)
+		session, err = manager.provider.SessionRead(sid)
+		if err != nil {
+			return nil, err
+		}
 		cookie = &http.Cookie{Name: manager.config.CookieName,
 			Value:    url.QueryEscape(sid),
 			Path:     "/",
@@ -299,7 +290,10 @@ func (manager *Manager) SessionRegenerateID(w http.ResponseWriter, r *http.Reque
 		}
 	} else {
 		oldsid, _ := url.QueryUnescape(cookie.Value)
-		session, _ = manager.provider.SessionRegenerate(oldsid, sid)
+		session, err = manager.provider.SessionRegenerate(oldsid, sid)
+		if err != nil {
+			return nil, err
+		}
 		cookie.Value = url.QueryEscape(sid)
 		cookie.HttpOnly = true
 		cookie.Path = "/"
@@ -318,7 +312,7 @@ func (manager *Manager) SessionRegenerateID(w http.ResponseWriter, r *http.Reque
 		w.Header().Set(manager.config.SessionNameInHttpHeader, sid)
 	}
 
-	return
+	return session, nil
 }
 
 // GetActiveSession Get all active sessions count number.
@@ -326,7 +320,7 @@ func (manager *Manager) GetActiveSession() int {
 	return manager.provider.SessionAll()
 }
 
-// SetSecure Set cookie with https.
+// SetSecure sets whether the cookie should be sent over HTTPS only.
 func (manager *Manager) SetSecure(secure bool) {
 	manager.config.Secure = secure
 }
@@ -340,7 +334,7 @@ func (manager *Manager) sessionID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// Set cookie with https.
+// isSecure returns whether the request should use secure cookies.
 func (manager *Manager) isSecure(req *http.Request) bool {
 	if !manager.config.Secure {
 		return false
@@ -354,12 +348,12 @@ func (manager *Manager) isSecure(req *http.Request) bool {
 	return true
 }
 
-// Log implement the log.Logger
+// Log implements the log.Logger interface for session logging.
 type Log struct {
 	*log.Logger
 }
 
-// NewSessionLog set io.Writer to create a Logger for session.
+// NewSessionLog creates a Logger for session using the given io.Writer.
 func NewSessionLog(out io.Writer) *Log {
 	sl := new(Log)
 	sl.Logger = log.New(out, "[SESSION]", 1e9)

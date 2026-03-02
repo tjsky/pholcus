@@ -7,14 +7,13 @@ import (
 
 	"github.com/andeya/pholcus/config"
 
-	"github.com/andeya/pholcus/cmd" // cmd版
-	"github.com/andeya/pholcus/web" // web版
+	"github.com/andeya/pholcus/cmd" // cmd UI
+	"github.com/andeya/pholcus/web" // web UI
 )
 
 func run(which string) {
 	exec.Command("/bin/sh", "-c", "title", config.FULL_NAME).Start()
 
-	// 选择运行界面
 	switch which {
 	case "cmd":
 		cmd.Run()

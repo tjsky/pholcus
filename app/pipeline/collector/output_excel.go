@@ -11,7 +11,8 @@ import (
 	"github.com/andeya/pholcus/runtime/cache"
 )
 
-/************************ excel 输出 ***************************/
+// --- Excel Output ---
+
 func init() {
 	DataOutput["excel"] = func(self *Collector) (err error) {
 		defer func() {
@@ -27,21 +28,17 @@ func init() {
 			sheets = make(map[string]*xlsx.Sheet)
 		)
 
-		// 创建文件
 		file = xlsx.NewFile()
 
-		// 添加分类数据工作表
 		for _, datacell := range self.dataDocker {
 			var subNamespace = util.FileNameReplace(self.subNamespace(datacell))
 			if _, ok := sheets[subNamespace]; !ok {
-				// 添加工作表
 				sheet, err := file.AddSheet(subNamespace)
 				if err != nil {
 					logs.Log.Error("%v", err)
 					continue
 				}
 				sheets[subNamespace] = sheet
-				// 写入表头
 				row = sheets[subNamespace].AddRow()
 				for _, title := range self.MustGetRule(datacell["RuleName"].(string)).ItemFields {
 					row.AddCell().Value = title
@@ -72,7 +69,7 @@ func init() {
 		folder := config.TEXT_DIR + "/" + cache.StartTime.Format("2006-01-02 150405")
 		filename := fmt.Sprintf("%v/%v__%v-%v.xlsx", folder, util.FileNameReplace(self.namespace()), self.sum[0], self.sum[1])
 
-		// 创建/打开目录
+		// Create directory if needed
 		f2, err := os.Stat(folder)
 		if err != nil || !f2.IsDir() {
 			if err := os.MkdirAll(folder, 0777); err != nil {
@@ -80,7 +77,6 @@ func init() {
 			}
 		}
 
-		// 保存文件
 		err = file.Save(filename)
 		return
 	}

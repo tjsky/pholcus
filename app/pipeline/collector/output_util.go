@@ -4,7 +4,7 @@ import (
 	"github.com/andeya/pholcus/logs"
 )
 
-// 主命名空间相对于数据库名，不依赖具体数据内容，可选
+// namespace returns the main namespace (relative to DB name); optional, does not depend on data content.
 func (self *Collector) namespace() string {
 	if self.Spider.Namespace == nil {
 		if self.Spider.GetSubName() == "" {
@@ -15,7 +15,7 @@ func (self *Collector) namespace() string {
 	return self.Spider.Namespace(self.Spider)
 }
 
-// 次命名空间相对于表名，可依赖具体数据内容，可选
+// subNamespace returns the sub-namespace (relative to table name); optional, may depend on data content.
 func (self *Collector) subNamespace(dataCell map[string]interface{}) string {
 	if self.Spider.SubNamespace == nil {
 		return dataCell["RuleName"].(string)
@@ -28,7 +28,7 @@ func (self *Collector) subNamespace(dataCell map[string]interface{}) string {
 	return self.Spider.SubNamespace(self.Spider, dataCell)
 }
 
-// 下划线连接主次命名空间
+// joinNamespaces concatenates main and sub-namespace with double underscore.
 func joinNamespaces(namespace, subNamespace string) string {
 	if namespace == "" {
 		return subNamespace

@@ -1,6 +1,6 @@
 package pinyin
 
-// 带音标字符。
+// phoneticSymbol maps tone-marked characters to their base form plus tone digit.
 var phoneticSymbol = map[string]string{
 	"ā": "a1",
 	"á": "a2",

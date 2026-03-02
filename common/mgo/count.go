@@ -1,6 +1,5 @@
 package mgo
 
-//基础查询
 import (
 	"fmt"
 
@@ -9,11 +8,11 @@ import (
 	"github.com/andeya/pholcus/common/pool"
 )
 
-// 传入数据库与集合名 | 返回文档总数
+// Count returns the number of documents matching the query.
 type Count struct {
-	Database   string                 // 数据库
-	Collection string                 // 集合
-	Query      map[string]interface{} // 查询语句
+	Database   string                 // database name
+	Collection string                 // collection name
+	Query      map[string]interface{} // query filter
 }
 
 func (self *Count) Exec(resultPtr interface{}) (err error) {
@@ -30,7 +29,7 @@ func (self *Count) Exec(resultPtr interface{}) (err error) {
 
 		if id, ok := self.Query["_id"]; ok {
 			if idStr, ok2 := id.(string); !ok2 {
-				return fmt.Errorf("%v", "参数 _id 必须为 string 类型！")
+				return fmt.Errorf("%v", "parameter _id must be of string type")
 			} else {
 				self.Query["_id"] = bson.ObjectIdHex(idStr)
 			}

@@ -11,25 +11,26 @@ import (
 )
 
 type (
+	// Logs defines the logging interface for real-time log display and capture.
 	Logs interface {
-		// 设置实时log信息显示终端
+		// SetOutput sets the terminal for real-time log display.
 		SetOutput(show io.Writer) Logs
-		// 暂停输出日志
+		// Rest pauses log output.
 		Rest()
-		// 恢复暂停状态，继续输出日志
+		// GoOn resumes from pause and continues log output.
 		GoOn()
-		// 是否开启日志捕获副本模式
+		// EnableStealOne enables or disables log capture copy mode.
 		EnableStealOne(bool)
-		// 按先后顺序实时捕获日志副本，每次返回1条，normal标记日志是否被关闭
+		// StealOne captures log copies in order, returning one at a time; normal indicates whether the logger is closed.
 		StealOne() (level int, msg string, normal bool)
-		// 正常关闭日志输出
+		// Close shuts down log output normally.
 		Close()
-		// 返回运行状态，如0,"RUN"
+		// Status returns the running status, e.g. 0,"RUN".
 		Status() (int, string)
 		DelLogger(adaptername string) error
 		SetLogger(adaptername string, config map[string]interface{}) error
 
-		// 以下打印方法除正常log输出外，若为客户端或服务端模式还将进行socket信息发送
+		// The following methods output logs and, in client/server mode, also send messages over the socket.
 		Debug(format string, v ...interface{})
 		Informational(format string, v ...interface{})
 		App(format string, v ...interface{})
@@ -45,9 +46,10 @@ type (
 	}
 )
 
+// Log is the default logger instance.
 var Log = func() Logs {
 	p, _ := path.Split(config.LOG)
-	// 不存在目录时创建目录
+	// Create directory when it does not exist
 	d, err := os.Stat(p)
 	if err != nil || !d.IsDir() {
 		if err := os.MkdirAll(p, 0777); err != nil {
@@ -59,30 +61,26 @@ var Log = func() Logs {
 		BeeLogger: logs.NewLogger(config.LOG_CAP, config.LOG_FEEDBACK_LEVEL),
 	}
 
-	// 是否打印行信息
 	ml.BeeLogger.EnableFuncCallDepth(config.LOG_LINEINFO)
-	// 全局日志打印级别（亦是日志文件输出级别）
 	ml.BeeLogger.SetLevel(config.LOG_LEVEL)
-	// 是否异步输出日志
 	ml.BeeLogger.Async(config.LOG_ASYNC)
-	// 设置日志显示位置
 	ml.BeeLogger.SetLogger("console", map[string]interface{}{
 		"level": config.LOG_CONSOLE_LEVEL,
 	})
 
-	// 是否保存所有日志到本地文件
 	if config.LOG_SAVE {
 		err = ml.BeeLogger.SetLogger("file", map[string]interface{}{
 			"filename": config.LOG,
 		})
 		if err != nil {
-			fmt.Printf("日志文档创建失败：%v", err)
+			fmt.Printf("Failed to create log file: %v", err)
 		}
 	}
 
 	return ml
 }()
 
+// SetOutput sets the terminal for real-time log display.
 func (self *mylog) SetOutput(show io.Writer) Logs {
 	self.BeeLogger.SetLogger("console", map[string]interface{}{
 		"writer": show,

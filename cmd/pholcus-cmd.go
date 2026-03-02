@@ -1,6 +1,4 @@
-// [spider frame (golang)] Pholcus（幽灵蛛）是一款纯Go语言编写的高并发、分布式、重量级爬虫软件，支持单机、服务端、客户端三种运行模式，拥有Web、GUI、命令行三种操作界面；规则简单灵活、批量任务并发、输出方式丰富（mysql/mongodb/csv/excel等）、有大量Demo共享；同时她还支持横纵向两种抓取模式，支持模拟登录和任务暂停、取消等一系列高级功能；
-// （官方QQ群：Go大数据 42731170，欢迎加入我们的讨论）。
-// 命令行界面版。
+// Package cmd implements the command-line interface for Pholcus.
 package cmd
 
 import (
@@ -23,12 +21,10 @@ var (
 	spiderflag *string
 )
 
-// 获取外部参数
+// Flag registers command-line flags for the CMD interface.
 func Flag() {
-	// 分类说明
 	flag.String("c ******************************************** only for cmd ******************************************** -c", "", "")
 
-	// 蜘蛛列表
 	spiderflag = flag.String(
 		"c_spider",
 		"",
@@ -40,7 +36,6 @@ func Flag() {
 			return "   <蜘蛛列表: 选择多蜘蛛以 \",\" 间隔>\r\n" + spiderlist
 		}())
 
-	// 备注说明
 	flag.String(
 		"c_z",
 		"",
@@ -48,7 +43,7 @@ func Flag() {
 	)
 }
 
-// 执行入口
+// Run starts the application in the configured mode.
 func Run() {
 	app.LogicApp.Init(cache.Task.Mode, cache.Task.Port, cache.Task.Master)
 	if cache.Task.Mode == status.UNSET {
@@ -70,9 +65,7 @@ func Run() {
 	}
 }
 
-// 运行
 func run() {
-	// 创建蜘蛛队列
 	sps := []*spider.Spider{}
 	*spiderflag = strings.TrimSpace(*spiderflag)
 	if *spiderflag == "*" {
@@ -92,9 +85,9 @@ func run() {
 	app.LogicApp.SpiderPrepare(sps).Run()
 }
 
-// 服务器模式下接收添加任务的参数
+// parseInput reads task parameters from stdin in server mode.
 func parseInput() {
-	logs.Log.Informational("\n添加任务参数——必填：%v\n添加任务参数——必填可选：%v\n", "-c_spider", []string{
+	logs.Log.Informational("\nRequired task parameter: %v\nOptional task parameters: %v\n", "-c_spider", []string{
 		"-a_keyins",
 		"-a_limit",
 		"-a_outtype",
@@ -104,13 +97,13 @@ func parseInput() {
 		"-a_dockercap",
 		"-a_success",
 		"-a_failure"})
-	logs.Log.Informational("\n添加任务：\n")
+	logs.Log.Informational("\nAdd task:\n")
 retry:
 	*spiderflag = ""
 	input := [12]string{}
 	fmt.Scanln(&input[0], &input[1], &input[2], &input[3], &input[4], &input[5], &input[6], &input[7], &input[8], &input[9])
 	if strings.Index(input[0], "=") < 4 {
-		logs.Log.Informational("\n添加任务的参数不正确，请重新输入：")
+		logs.Log.Informational("\nInvalid task parameters, please re-enter:")
 		goto retry
 	}
 	for _, v := range input {
@@ -172,7 +165,7 @@ retry:
 		case "-c_spider":
 			*spiderflag = value
 		default:
-			logs.Log.Informational("\n不可含有未知参数，必填参数：%v\n可选参数：%v\n", "-c_spider", []string{
+			logs.Log.Informational("\nUnknown parameter detected. Required: %v\nOptional: %v\n", "-c_spider", []string{
 				"-a_keyins",
 				"-a_limit",
 				"-a_outtype",

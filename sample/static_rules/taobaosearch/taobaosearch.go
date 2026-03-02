@@ -62,9 +62,9 @@ var TaobaoSearch = &spider.Spider{
 						return
 					}
 
-					re, _ := regexp.Compile(`(?U)"totalCount":[\d]+}`)
+					re := regexp.MustCompile(`(?U)"totalCount":[\d]+}`)
 					total := re.FindString(src)
-					re, _ = regexp.Compile(`[\d]+`)
+					re = regexp.MustCompile(`[\d]+`)
 					total = re.FindString(total)
 					totalCount, _ := strconv.Atoi(total)
 
@@ -93,16 +93,16 @@ var TaobaoSearch = &spider.Spider{
 					query := ctx.GetDom()
 					src := query.Find("script").Text()
 
-					re, _ := regexp.Compile(`"auctions".*,"recommendAuctions"`)
+					re := regexp.MustCompile(`"auctions".*,"recommendAuctions"`)
 					src = re.FindString(src)
 
-					re, _ = regexp.Compile(`"auctions":`)
+					re = regexp.MustCompile(`"auctions":`)
 					src = re.ReplaceAllString(src, "")
 
-					re, _ = regexp.Compile(`,"recommendAuctions"`)
+					re = regexp.MustCompile(`,"recommendAuctions"`)
 					src = re.ReplaceAllString(src, "")
 
-					re, _ = regexp.Compile("\\<[\\S\\s]+?\\>")
+					re = regexp.MustCompile("\\<[\\S\\s]+?\\>")
 					// src = re.ReplaceAllStringFunc(src, strings.ToLower)
 					src = re.ReplaceAllString(src, " ")
 
@@ -151,9 +151,9 @@ var TaobaoSearch = &spider.Spider{
 					if d == "" {
 						h, _ := ctx.GetDom().Find(".attributes-list").Html()
 						d = spidercommon.UnicodeToUTF8(h)
-						d = strings.Replace(d, "&nbsp;", " ", -1)
+						d = strings.ReplaceAll(d, "&nbsp;", " ")
 						d = spidercommon.CleanHtml(d, 5)
-						d = strings.Replace(d, "产品参数：\n", "", -1)
+						d = strings.ReplaceAll(d, "产品参数：\n", "")
 
 						for _, v := range strings.Split(d, "\n") {
 							if v == "" {
@@ -176,8 +176,8 @@ var TaobaoSearch = &spider.Spider{
 						}
 
 					} else {
-						d = strings.Replace(d, `"newProGroup":`, "", -1)
-						d = strings.Replace(d, `,"progressiveSupport"`, "", -1)
+						d = strings.ReplaceAll(d, `"newProGroup":`, "")
+						d = strings.ReplaceAll(d, `,"progressiveSupport"`, "")
 
 						infos := []map[string]interface{}{}
 

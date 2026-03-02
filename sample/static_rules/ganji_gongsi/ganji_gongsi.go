@@ -101,7 +101,7 @@ var GanjiGongsi = &spider.Spider{
 					query.Find(".c-introduce li").Each(func(i int, s *goquery.Selection) {
 						em := s.Find("em").Text()
 						t := strings.Split(s.Text(), `   `)[0]
-						t = strings.Replace(t, em, "", -1)
+						t = strings.ReplaceAll(t, em, "")
 						t = strings.Trim(t, " ")
 
 						switch em {

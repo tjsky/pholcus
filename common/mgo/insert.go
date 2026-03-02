@@ -8,15 +8,15 @@ import (
 	"github.com/andeya/pholcus/common/pool"
 )
 
-// 插入新数据
+// Insert inserts new documents into the collection.
 type Insert struct {
-	Database   string                   // 数据库
-	Collection string                   // 集合
-	Docs       []map[string]interface{} // 文档
+	Database   string                   // database name
+	Collection string                   // collection name
+	Docs       []map[string]interface{} // documents to insert
 }
 
 const (
-	MaxLen int = 5000 //分配插入
+	MaxLen int = 5000 // batch size for bulk insert
 )
 
 func (self *Insert) Exec(resultPtr interface{}) (err error) {

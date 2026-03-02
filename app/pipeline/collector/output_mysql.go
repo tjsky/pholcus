@@ -9,7 +9,7 @@ import (
 	"github.com/andeya/pholcus/logs"
 )
 
-/************************ Mysql 输出 ***************************/
+// --- MySQL Output ---
 
 func init() {
 	var (

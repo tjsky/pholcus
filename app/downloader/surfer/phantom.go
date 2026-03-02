@@ -30,16 +30,16 @@ import (
 )
 
 type (
-	// Phantom 基于Phantomjs的下载器实现，作为surfer的补充
-	// 效率较surfer会慢很多，但是因为模拟浏览器，破防性更好
-	// 支持UserAgent/TryTimes/RetryPause/自定义js
+	// Phantom is a PhantomJS-based downloader, complementing Surf.
+	// Slower than Surf but better at bypassing anti-scraping due to browser simulation.
+	// Supports UserAgent, TryTimes, RetryPause, and custom JS.
 	Phantom struct {
-		PhantomjsFile string            //Phantomjs完整文件名
-		TempJsDir     string            //临时js存放目录
-		jsFileMap     map[string]string //已存在的js文件
+		PhantomjsFile string            // full path to PhantomJS executable
+		TempJsDir     string            // directory for temporary JS files
+		jsFileMap     map[string]string // existing JS files
 		CookieJar     *cookiejar.Jar
 	}
-	// Response 用于解析Phantomjs的响应内容
+	// Response parses PhantomJS response content.
 	Response struct {
 		Cookies []string
 		Body    string
@@ -50,7 +50,7 @@ type (
 		}
 	}
 
-	//给phantomjs传输cookie用
+	// Cookie is used to pass cookies to PhantomJS.
 	Cookie struct {
 		Name   string `json:"name"`
 		Value  string `json:"value"`
@@ -68,15 +68,22 @@ func NewPhantom(phantomjsFile, tempJsDir string, jar ...*cookiejar.Jar) Surfer {
 	if len(jar) != 0 {
 		phantom.CookieJar = jar[0]
 	} else {
-		phantom.CookieJar, _ = cookiejar.New(nil)
+		phantom.CookieJar, _ = cookiejar.New(nil) // nil options never returns error
 	}
 	if !filepath.IsAbs(phantom.PhantomjsFile) {
-		phantom.PhantomjsFile, _ = filepath.Abs(phantom.PhantomjsFile)
+		if absPath, err := filepath.Abs(phantom.PhantomjsFile); err != nil {
+			log.Printf("[E] Surfer: filepath.Abs(%q): %v", phantom.PhantomjsFile, err)
+		} else {
+			phantom.PhantomjsFile = absPath
+		}
 	}
 	if !filepath.IsAbs(phantom.TempJsDir) {
-		phantom.TempJsDir, _ = filepath.Abs(phantom.TempJsDir)
+		if absPath, err := filepath.Abs(phantom.TempJsDir); err != nil {
+			log.Printf("[E] Surfer: filepath.Abs(%q): %v", phantom.TempJsDir, err)
+		} else {
+			phantom.TempJsDir = absPath
+		}
 	}
-	// 创建/打开目录
 	err := os.MkdirAll(phantom.TempJsDir, 0777)
 	if err != nil {
 		log.Printf("[E] Surfer: %v\n", err)
@@ -86,7 +93,7 @@ func NewPhantom(phantomjsFile, tempJsDir string, jar ...*cookiejar.Jar) Surfer {
 	return phantom
 }
 
-// 实现surfer下载器接口
+// Download implements the Surfer interface.
 func (self *Phantom) Download(req Request) (resp *http.Response, err error) {
 	var encoding = "utf-8"
 	if _, params, err := mime.ParseMediaType(req.GetHeader().Get("Content-Type")); err == nil {
@@ -167,12 +174,10 @@ func (self *Phantom) Download(req Request) (resp *http.Response, err error) {
 			continue
 		}
 
-		//设置header
 		for _, h := range retResp.Header {
 			resp.Header.Add(h.Name, h.Value)
 		}
 
-		//设置cookie
 		for _, c := range retResp.Cookies {
 			resp.Header.Add("Set-Cookie", c)
 		}
@@ -195,7 +200,7 @@ func (self *Phantom) Download(req Request) (resp *http.Response, err error) {
 	return
 }
 
-// 销毁js临时文件
+// DestroyJsFiles removes temporary JS files.
 func (self *Phantom) DestroyJsFiles() {
 	p, _ := filepath.Split(self.TempJsDir)
 	if p == "" {
@@ -211,7 +216,6 @@ func (self *Phantom) DestroyJsFiles() {
 
 func (self *Phantom) createJsFile(fileName, jsCode string) {
 	fullFileName := filepath.Join(self.TempJsDir, fileName)
-	// 创建并写入文件
 	f, _ := os.Create(fullFileName)
 	f.Write([]byte(jsCode))
 	f.Close()
@@ -245,7 +249,7 @@ var exit = function () {
     phantom.exit();
 };
 
-//输出参数
+// output params
 // console.log("url=" + url);
 // console.log("cookie=" + cookie);
 // console.log("pageEncode=" + pageEncode);
@@ -294,7 +298,7 @@ page.onResourceReceived = function (response) {
         // console.log("liguoqinjim received1------------------------------------------------");
         // console.log("url=" + response.url);
         //
-        // for (var j in response.headers) {//用javascript的for/in循环遍历对象的属性
+        // for (var j in response.headers) { // iterate object properties with for/in
         //     // var m = sprintf("AttrId[%d]Value[%d]", j, result.Attrs[j]);
         //     // message += m;
         //     // console.log(response.headers[j]);
@@ -303,7 +307,6 @@ page.onResourceReceived = function (response) {
         //
         // console.log("liguoqinjim received2------------------------------------------------");
 
-        //在ret中加入header
         ret["Header"] = response.headers;
     }
 };
@@ -324,7 +327,7 @@ page.onResourceError = function (e) {
     // console.log("onResourceError");
     // console.log("1:" + e.errorCode + "," + e.errorString);
 
-    if (e.errorCode != 5) { //errorCode=5的情况和onResourceTimeout冲突
+    if (e.errorCode != 5) { // errorCode=5 conflicts with onResourceTimeout
         ret["Error"] = "onResourceError";
         exit();
     }

@@ -77,9 +77,9 @@ var Hollandandbarrett = &spider.Spider{
 
 					query := ctx.GetDom()
 
-					re, _ := regexp.Compile(`(?U)"totalNumRecs":[\d]+,`)
+					re := regexp.MustCompile(`(?U)"totalNumRecs":[\d]+,`)
 					total := re.FindString(query.Text())
-					re, _ = regexp.Compile(`[\d]+`)
+					re = regexp.MustCompile(`[\d]+`)
 					total = re.FindString(total)
 					total = strings.Trim(total, " \t\n")
 

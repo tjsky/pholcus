@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"strings"
 
 	"github.com/robertkrimen/otto"
@@ -17,7 +18,7 @@ import (
 
 var scriptTagRe = regexp.MustCompile(`(?s)(<Script[^>]*>)(.*?)(</Script>)`)
 
-// 蜘蛛规则解释器模型
+// SpiderModle is the XML model for dynamic (JavaScript-based) spider rules.
 type (
 	SpiderModle struct {
 		Name            string      `xml:"Name"`
@@ -32,6 +33,7 @@ type (
 		Root            string      `xml:"Root>Script"`
 		Trunk           []RuleModle `xml:"Rule"`
 	}
+	// RuleModle is the XML model for a single dynamic rule node.
 	RuleModle struct {
 		Name      string `xml:"name,attr"`
 		ParseFunc string `xml:"ParseFunc>Script"`
@@ -41,7 +43,7 @@ type (
 
 func init() {
 	for _, _m := range getSpiderModles() {
-		m := _m //保证闭包变量
+		m := _m
 		var sp = &Spider{
 			Name:            m.Name,
 			Description:     m.Description,
@@ -63,7 +65,7 @@ func init() {
 				vm.Set("self", self)
 				val, err := vm.Eval(m.Namespace)
 				if err != nil {
-					logs.Log.Error(" *     动态规则  [Namespace]: %v\n", err)
+					logs.Log.Error(" *     dynamic rule [Namespace]: %v\n", err)
 				}
 				s, _ := val.ToString()
 				return s
@@ -77,7 +79,7 @@ func init() {
 				vm.Set("dataCell", dataCell)
 				val, err := vm.Eval(m.SubNamespace)
 				if err != nil {
-					logs.Log.Error(" *     动态规则  [SubNamespace]: %v\n", err)
+					logs.Log.Error(" *     dynamic rule [SubNamespace]: %v\n", err)
 				}
 				s, _ := val.ToString()
 				return s
@@ -89,7 +91,7 @@ func init() {
 			vm.Set("ctx", ctx)
 			_, err := vm.Eval(m.Root)
 			if err != nil {
-				logs.Log.Error(" *     动态规则  [Root]: %v\n", err)
+				logs.Log.Error(" *     dynamic rule [Root]: %v\n", err)
 			}
 		}
 
@@ -101,7 +103,7 @@ func init() {
 					vm.Set("ctx", ctx)
 					_, err := vm.Eval(parse)
 					if err != nil {
-						logs.Log.Error(" *     动态规则  [ParseFunc]: %v\n", err)
+						logs.Log.Error(" *     dynamic rule [ParseFunc]: %v\n", err)
 					}
 				}
 			}(rule.ParseFunc)
@@ -113,7 +115,7 @@ func init() {
 					vm.Set("aid", aid)
 					val, err := vm.Eval(parse)
 					if err != nil {
-						logs.Log.Error(" *     动态规则  [AidFunc]: %v\n", err)
+						logs.Log.Error(" *     dynamic rule [AidFunc]: %v\n", err)
 					}
 					return val
 				}
@@ -124,8 +126,8 @@ func init() {
 	}
 }
 
-// wrapScriptCDATA 自动为 <Script> 标签中未被 CDATA 包裹的内容添加 CDATA，
-// 使用户可以在脚本中直接书写 < > & 等字符而无需手动转义。
+// wrapScriptCDATA wraps <Script> tag content in CDATA sections if not already wrapped,
+// allowing users to write <, >, & etc. in scripts without manual escaping.
 func wrapScriptCDATA(data []byte) []byte {
 	return scriptTagRe.ReplaceAllFunc(data, func(match []byte) []byte {
 		parts := scriptTagRe.FindSubmatch(match)
@@ -144,10 +146,11 @@ func wrapScriptCDATA(data []byte) []byte {
 	})
 }
 
+// getSpiderModles loads all dynamic spider rule files from the configured directory.
 func getSpiderModles() (ms []*SpiderModle) {
 	defer func() {
 		if p := recover(); p != nil {
-			log.Printf("[E] HTML动态规则解析: %v\n", p)
+			logs.Log.Error("panic recovered (dynamic rule parsing): %v\n%s", p, debug.Stack())
 		}
 	}()
 	files, _ := filepath.Glob(path.Join(config.SPIDER_DIR, "*"+config.SPIDER_EXT))
@@ -156,14 +159,14 @@ func getSpiderModles() (ms []*SpiderModle) {
 	for _, filename := range files {
 		b, err := os.ReadFile(filename)
 		if err != nil {
-			log.Printf("[E] 动态规则[%s]: %v\n", filename, err)
+			log.Printf("[E] dynamic rule [%s]: %v\n", filename, err)
 			continue
 		}
 		b = wrapScriptCDATA(b)
 		var m SpiderModle
 		err = xml.Unmarshal(b, &m)
 		if err != nil {
-			log.Printf("[E] 动态规则[%s]: %v\n", filename, err)
+			log.Printf("[E] dynamic rule [%s]: %v\n", filename, err)
 			continue
 		}
 		ms = append(ms, &m)

@@ -68,7 +68,7 @@ var JDSearch = &spider.Spider{
 
 					total1 := query.Find("#top_pagi span.text").Text()
 
-					re, _ := regexp.Compile(`[\d]+$`)
+					re := regexp.MustCompile(`[\d]+$`)
 					total1 = re.FindString(total1)
 					total, _ := strconv.Atoi(total1)
 
@@ -102,7 +102,7 @@ var JDSearch = &spider.Spider{
 						a := s.Find(".p-name a")
 						title := a.Text()
 
-						re, _ := regexp.Compile("\\<[\\S\\s]+?\\>")
+						re := regexp.MustCompile("\\<[\\S\\s]+?\\>")
 						// title = re.ReplaceAllStringFunc(title, strings.ToLower)
 						title = re.ReplaceAllString(title, " ")
 						title = strings.Trim(title, " \t\n")
@@ -113,7 +113,7 @@ var JDSearch = &spider.Spider{
 						// 获取评论数
 						e := s.Find(".extra").First()
 						discuss := e.Find("a").First().Text()
-						re, _ = regexp.Compile(`[\d]+`)
+						re = regexp.MustCompile(`[\d]+`)
 						discuss = re.FindString(discuss)
 
 						// 获取星级

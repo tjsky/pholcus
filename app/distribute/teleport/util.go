@@ -24,13 +24,13 @@ func HashString(encode string) uint64 {
 	return hash.Sum64()
 }
 
-// 制作特征值方法一
+// MakeUnique creates a unique fingerprint for an object (method 1).
 func MakeUnique(obj interface{}) string {
 	baseString, _ := json.Marshal(obj)
 	return strconv.FormatUint(HashString(string(baseString)), 10)
 }
 
-// 制作特征值方法二
+// MakeMd5 creates a unique fingerprint for an object (method 2).
 func MakeMd5(obj interface{}, length int) string {
 	if length > 32 {
 		length = 32

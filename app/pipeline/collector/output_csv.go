@@ -11,7 +11,8 @@ import (
 	"github.com/andeya/pholcus/runtime/cache"
 )
 
-/************************ CSV 输出 ***************************/
+// --- CSV Output ---
+
 func init() {
 	DataOutput["csv"] = func(self *Collector) (err error) {
 		defer func() {
@@ -29,7 +30,7 @@ func init() {
 				folder := config.TEXT_DIR + "/" + cache.StartTime.Format("2006-01-02 150405") + "/" + joinNamespaces(namespace, subNamespace)
 				filename := fmt.Sprintf("%v/%v-%v.csv", folder, self.sum[0], self.sum[1])
 
-				// 创建/打开目录
+				// Create directory if needed
 				f, err := os.Stat(folder)
 				if err != nil || !f.IsDir() {
 					if err := os.MkdirAll(folder, 0777); err != nil {
@@ -37,7 +38,7 @@ func init() {
 					}
 				}
 
-				// 按数据分类创建文件
+				// Create file per data category
 				file, err := os.Create(filename)
 
 				if err != nil {
@@ -45,13 +46,11 @@ func init() {
 					continue
 				}
 				defer func() {
-					// 发送缓存数据流
 					sheets[subNamespace].Flush()
-					// 关闭文件
 					file.Close()
 				}()
 
-				file.WriteString("\xEF\xBB\xBF") // 写入UTF-8 BOM
+				file.WriteString("\xEF\xBB\xBF") // UTF-8 BOM
 
 				sheets[subNamespace] = csv.NewWriter(file)
 				th := self.MustGetRule(datacell["RuleName"].(string)).ItemFields
